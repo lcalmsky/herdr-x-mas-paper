@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>X-mas Paper</title>
+<style>
+  html, body { margin: 0; padding: 0; width: 2560px; height: 1600px; overflow: hidden; background: #FBF8F2; }
+  .layer { position: absolute; inset: 0; background-size: cover; background-position: center; }
+  .layer.light { z-index: 0; background-image: url("light.png"); }
+  .layer.dark { z-index: 1; background-image: url("dark.png"); clip-path: polygon(1480px 0, 2560px 0, 2560px 1600px, 1080px 1600px); }
+  .seam { position: absolute; inset: 0; z-index: 2; }
+</style>
+</head>
+<body>
+  <div class="layer light"></div>
+  <div class="layer dark"></div>
+  <svg class="seam" width="2560" height="1600" viewBox="0 0 2560 1600">
+    <defs><filter id="s" x="-50%" y="-5%" width="200%" height="110%"><feGaussianBlur stdDeviation="10"/></filter></defs>
+    <line x1="1480" y1="0" x2="1080" y2="1600" stroke="rgba(20,16,30,.45)" stroke-width="14" filter="url(#s)"/>
+    <line x1="1480" y1="0" x2="1080" y2="1600" stroke="#FFFDF8" stroke-width="3"/>
+  </svg>
+</body>
+</html>

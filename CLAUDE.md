@@ -22,6 +22,18 @@ node --import ./tests/stubs/register.mjs --test tests/
 
 `tools/install.sh` 는 mod, `layouts/x-mas-paper.json`, `layouts/x-mas-paper.png`(있으면), 테마 둘을 `${HERDR_APP_HOME:-$HOME/.config/herdr-app}` 로 복사한다. `herdr-shared` 의 `cca`·`scan.sh`·`hv` 는 `vendor/herdr-shared` 서브모듈에서 `herdr-shared.list` 대로 사본을 만든다 (`sh vendor/herdr-shared/tools/vendor.sh --list .`).
 
+## 그림 다시 만들기
+
+```sh
+tools/preview/render.sh
+```
+
+`preview.png`(2560×1600, 밝은 그림과 어두운 그림을 대각선으로 합친 것)와 `layouts/x-mas-paper.png`(640×400, 밝은 그림)를 다시 만든다. macOS 와 `/Applications/Google Chrome.app` 이 필요하고(`CHROME` 으로 경로를 바꾼다), 화면이 잠겨 있거나 미리보기 창이 이미 떠 있거나 창 위에 알림·대화상자가 있으면 아무것도 쓰지 않고 멈춘다.
+
+- `tools/preview/build-layout.py` 가 `layouts/x-mas-paper.json` 을 그림용으로 고친다: 장면·레일·계정·탭 블록에 `props.demo` 를 넣고, 터미널 블록을 `tools/preview/mods/x-mas-paper-demo-term` 로 바꾼다.
+- 지어낸 데모 데이터는 `mods/x-mas-paper-scene/demo.js`, `mods/x-mas-paper-rail/demo.js`, `mods/x-mas-paper-accounts/demo.js`, `mods/x-mas-paper-tabs/main.js` 의 `DEMO_SPACE`, `tools/preview/mods/x-mas-paper-demo-term/main.js` 에 있다.
+- `main.js` 가 불러오는 모듈(`demo.js`·`scene.js` 등)은 떠 있는 미리보기 창이 새로 읽지 않는다. 그런 모듈만 고쳤으면 `tools/preview.sh stop` 으로 닫고 다시 띄운다.
+
 ## 미리보기 규칙 (herdr-* 저장소 공통)
 
 이 절은 `~/git-repo/herdr-*` 저장소가 똑같이 싣는다. 한 곳에서 고치면 나머지 저장소의 같은 절도 같이 고친다.
