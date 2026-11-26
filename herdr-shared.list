@@ -1,0 +1,5 @@
+# herdr-shared groups vendored into this repo; see vendor/herdr-shared/README.md
+accounts mods/x-mas-paper-accounts
+scan mods/x-mas-paper-scene
+editor mods/x-mas-paper-editor
+herdr-open tools/herdr-open
