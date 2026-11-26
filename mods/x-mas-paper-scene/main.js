@@ -4,7 +4,7 @@
 // session's terminal. The rail reads the places published here, and the tab bar the notice.
 import { View, div } from "gpui-kit";
 import { exec, appHome, run, props, shared, setShared, theme, agents, terminals, panes } from "herdr";
-import { parseScan, buildSessions, placesOf, countStates, placeSessions, SCENE_H } from "./model.js";
+import { parseScan, buildSessions, placesOf, countStates, placeSessions, SCENE_H, SLEIGH_MS, SLEIGH_REST_MS, SLEIGH_FIRST_MS } from "./model.js";
 import { sceneLayers } from "./scene.js";
 import { demoSessions, demoRead } from "./demo.js";
 
@@ -45,11 +45,29 @@ export default class PaperScene extends View {
     this.since = {};
     this.read = this.demo ? new Set() : loadRead();
     this.items = [];
+    this.sleigh = false;
     this.refresh(Date.now());
     this.publishNotice();
+    this.startSleigh(cx);
     if (this.demo) return;
     cx.timer.every(POLL_MS, (cx) => this.poll(cx));
     this.poll(cx);
+  }
+
+  // The sleigh's crossing is a left transition, so a render must follow each end of it: the first
+  // render draws it waiting off the right edge, then these timers start and end each crossing.
+  startSleigh(cx) {
+    cx.timer.after(SLEIGH_FIRST_MS, (cx) => this.crossSleigh(cx));
+  }
+
+  crossSleigh(cx) {
+    this.sleigh = true;
+    cx.notify();
+    cx.timer.after(SLEIGH_MS, (cx) => {
+      this.sleigh = false;
+      cx.notify();
+      cx.timer.after(SLEIGH_REST_MS, (cx) => this.crossSleigh(cx));
+    });
   }
 
   poll(cx) {
@@ -161,7 +179,7 @@ export default class PaperScene extends View {
     const k = height / SCENE_H;
     const placed = placeSessions(this.items, this.width / k);
     const nodes = sceneLayers({
-      width: this.width, height, tone, units: placed.units, overflow: placed.overflow, colors,
+      width: this.width, height, tone, units: placed.units, overflow: placed.overflow, sleigh: this.sleigh, colors,
       visit: (unit) => this.visit(unit, cx),
     });
     return div().id("paper-scene").size_full().relative().overflow_hidden().bg(t.ground)

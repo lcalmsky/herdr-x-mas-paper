@@ -6,8 +6,9 @@ import assert from "node:assert/strict";
 import { readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
-  DISPLAY_STATES, HOUSES, PROPS, SLEEP_MS, displayState, stateOf, placeSessions, clipText, buildSessions,
+  DISPLAY_STATES, HOUSES, PROPS, EXTRAS, SLEEP_MS, displayState, stateOf, placeSessions, clipText, buildSessions,
   layoutBubbles, SEAT_STEP, SEAT_MIN_STEP, HOUSE_H, TREE_H, LAND_BAND, LAND_COLORS, LABEL_MIN_W, NUMBER_H, NAME_SIZE,
+  FLAKES, STARS, FRONT_Y, SLEIGH_MS, SLEIGH_REST_MS, GARLAND_H,
 } from "../mods/x-mas-paper-scene/model.js";
 import { sceneLayers } from "../mods/x-mas-paper-scene/scene.js";
 import { ASSETS } from "../mods/x-mas-paper-scene/manifest.js";
@@ -198,6 +199,11 @@ test("every asset the village names is in the manifest, dark names included", ()
       assert.ok(asset, `${name} is in the manifest`);
       assert.ok(files.has(asset.file), `${asset.file} is in art/`);
     }
+    for (const name of Object.values(EXTRAS[tone])) {
+      const asset = ASSETS[name];
+      assert.ok(asset, `${name} is in the manifest`);
+      assert.ok(files.has(asset.file), `${asset.file} is in art/`);
+    }
   }
   assert.ok(files.has("bg_light.webp") && files.has("bg_dark.webp"), "both backgrounds are in art/");
 });
@@ -210,12 +216,14 @@ const COLORS = {
 };
 const round2 = (n) => Math.round(n * 100) / 100;
 const callOf = (node, name) => node.calls.find(([key]) => key === name)?.[1];
-function renderScene(units, { width, height = 240, tone = "light" }) {
+const loopOf = (node, name) => node.calls.find(([key, prop]) => key === "loop" && prop === name)?.[2];
+const transitionOf = (node) => node.calls.find(([key]) => key === "transition")?.[2];
+function renderScene(units, { width, height = 240, tone = "light", sleigh = false }) {
   globalThis.uiIds = [];
   globalThis.uiNodes = new Map();
   globalThis.uiSizes = new Map();
   try {
-    sceneLayers({ width, height, tone, units, overflow: [], colors: COLORS[tone], visit() {} });
+    sceneLayers({ width, height, tone, units, overflow: [], sleigh, colors: COLORS[tone], visit() {} });
     return { ids: [...globalThis.uiIds], nodes: new Map(globalThis.uiNodes), sizes: new Map(globalThis.uiSizes) };
   } finally {
     delete globalThis.uiIds;
@@ -289,4 +297,128 @@ test("only the front row is named; a back-row house has no label", () => {
   const { ids } = renderScene(placed.units, { width: 700, height: 240 });
   for (const unit of front) assert.ok(ids.includes(`paper-name-${unit.id}`), `${unit.id} is named`);
   for (const unit of back) assert.ok(!ids.includes(`paper-name-${unit.id}`), `${unit.id} behind the front houses is not`);
+});
+
+const ART_SRC = "mods/x-mas-paper-scene/art/";
+const garlandIds = (nodes) => [...nodes.keys()].filter((id) => id.startsWith("paper-garland-"));
+
+test("the sky and roof extras come from the tone's own sheet", () => {
+  const units = demoUnits(1200);
+  for (const tone of ["light", "dark"]) {
+    const { nodes } = renderScene(units, { width: 1200, height: 240, tone });
+    assert.equal(nodes.get("paper-sleigh").src, `${ART_SRC}${EXTRAS[tone].sleigh}.webp`, `${tone}: the sleigh`);
+    FLAKES.forEach((_, i) => assert.equal(nodes.get(`paper-flake-${i}`)?.src, `${ART_SRC}${EXTRAS[tone].snowflake}.webp`,
+      `${tone}: flake ${i}`));
+    STARS.forEach((_, i) => {
+      const star = nodes.get(`paper-star-${i}`);
+      if (tone === "dark") assert.equal(star?.src, `${ART_SRC}${EXTRAS.dark.star}.webp`, `star ${i} at night`);
+      else assert.equal(star, undefined, "the light sky has no stars");
+    });
+    const garlands = garlandIds(nodes);
+    assert.ok(garlands.length > 0, `${tone}: the roofs are joined`);
+    for (const id of garlands) assert.equal(nodes.get(id).src, `${ART_SRC}${EXTRAS[tone].garland}.webp`, `${tone}: ${id}`);
+  }
+});
+
+test("a garland joins every neighbouring pair of front roofs except the tree's gap", () => {
+  for (const [width, count] of [[700, 9], [1060, 9], [1200, 13], [2400, 13]]) {
+    const units = placeSessions(Array.from({ length: count }, (_, i) => ({ id: `g${i}`, name: `G ${i}` })), width).units;
+    const front = units.filter((u) => u.row === "front").sort((a, b) => a.x - b.x);
+    const pairs = [];
+    for (let j = 1; j < front.length; j += 1) {
+      if (front[j - 1].x < width / 2 && front[j].x > width / 2) continue;
+      pairs.push([front[j - 1], front[j]]);
+    }
+    const { nodes, sizes } = renderScene(units, { width, height: 240, tone: "light" });
+    const ids = garlandIds(nodes);
+    assert.equal(ids.length, pairs.length, `width ${width}: one garland per pair but the tree's`);
+    for (const id of ids) {
+      const left = callOf(nodes.get(id), "left"), top = callOf(nodes.get(id), "top"), size = sizes.get(id);
+      assert.equal(size.h, GARLAND_H, `${id} hangs ${GARLAND_H} px`);
+      assert.ok(left + size.w / 2 > 0 && left + size.w / 2 < width, `${id} stays in the block`);
+      assert.ok(Math.abs(left + size.w / 2 - width / 2) > 1, `${id} is not the tree's gap`);
+      assert.ok(pairs.some(([l, r]) => left > l.x && left + size.w < r.x), `${id} spans the gap between two houses`);
+      assert.ok(top + size.h < FRONT_Y, `${id} hangs from the roofs, above the ground`);
+    }
+  }
+});
+
+test("the sleigh crosses the sky between two rests off the edges", () => {
+  const units = demoUnits(1200);
+  for (const height of [240, 320]) {
+    for (const tone of ["light", "dark"]) {
+      const parked = renderScene(units, { width: 1200, height, tone });
+      const node = parked.nodes.get("paper-sleigh");
+      const size = parked.sizes.get("paper-sleigh");
+      assert.equal(callOf(node, "left"), round2(1200 + 4), `${tone} at ${height}: waits off the right edge`);
+      assert.equal(transitionOf(node).duration, 0, "the return is not animated");
+      assert.ok(callOf(node, "top") >= 0 && callOf(node, "top") + size.h <= height, "the sleigh stays in the block");
+
+      const crossing = renderScene(units, { width: 1200, height, tone, sleigh: true });
+      const flying = crossing.nodes.get("paper-sleigh");
+      const fsize = crossing.sizes.get("paper-sleigh");
+      assert.ok(callOf(flying, "left") + fsize.w <= 0, `${tone} at ${height}: leaves the left edge`);
+      assert.equal(transitionOf(flying).duration, SLEIGH_MS, "a crossing takes the sleigh's time");
+    }
+  }
+});
+
+test("the paper snow falls inside the block, above the roofs", () => {
+  for (const width of [700, 1200, 2400]) {
+    for (const height of [240, 320]) {
+      const k = height / 240;
+      const { nodes, sizes } = renderScene(demoUnits(width), { width, height, tone: "light" });
+      FLAKES.forEach((_, i) => {
+        const node = nodes.get(`paper-flake-${i}`);
+        const size = sizes.get(`paper-flake-${i}`);
+        const left = callOf(node, "left"), top = callOf(node, "top");
+        assert.ok(left >= 0 && left + size.w <= width, `${width}: flake ${i} stays in the block`);
+        assert.ok(top >= 0 && top + size.h <= height, `${width}: flake ${i} starts in the block`);
+        assert.ok(loopOf(node, "top").to + size.h < (FRONT_Y - HOUSE_H) * k, `${width}: flake ${i} turns above the roofs`);
+        assert.equal(node.calls.filter(([key, prop]) => key === "loop" && prop !== "top").length, 0, "only top moves");
+      });
+    }
+  }
+});
+
+test("the sleigh rises above a bubble in the sky's height", () => {
+  // A front and a back house at the same x: the back bubble rises to its second level, which the
+  // sleigh's sky height would cover.
+  const question = "Will this line fit above the houses?";
+  const units = [
+    { id: "front", name: "Front", row: "front", x: 470, y: FRONT_Y, scale: 1, number: 1, display: "turn", question },
+    { id: "back", name: "Back", row: "back", x: 500, y: 160, scale: 0.72, number: 2, display: "turn", question },
+  ];
+  for (const tone of ["light", "dark"]) {
+    const { nodes, sizes } = renderScene(units, { width: 1200, height: 240, tone, sleigh: true });
+    const asks = [...nodes.entries()].filter(([id]) => id.startsWith("paper-ask-"));
+    assert.ok(asks.length > 0, "the waiting sessions have bubbles");
+    const lowest = Math.min(...asks.map(([, node]) => callOf(node, "top")));
+    const sleighTop = callOf(nodes.get("paper-sleigh"), "top"), sleighH = sizes.get("paper-sleigh").h;
+    assert.ok(sleighTop < 26, `the sleigh rose from its sky height (top ${sleighTop})`);
+    assert.ok(sleighTop + sleighH <= lowest, `the sleigh (${sleighTop}–${sleighTop + sleighH}) clears the highest bubble (${lowest})`);
+  }
+});
+
+test("the sleeping z's are the dark picture at night and the text in the light", () => {
+  const sessions = demoSessions(NOW);
+  const items = buildSessions({ sessions, read: new Set(demoRead(sessions)), now: NOW });
+  const sleeping = items.find((item) => item.display === "sleeping");
+  assert.ok(sleeping, "the demo has a sleeping session");
+  const units = placeSessions(items, 1200).units;
+  const id = `paper-zzz-${sleeping.id}`;
+
+  const dark = renderScene(units, { width: 1200, height: 240, tone: "dark" }).nodes.get(id);
+  const picture = dark.kids.find((kid) => kid.src);
+  assert.equal(picture?.src, `${ART_SRC}zzz_dark.webp`, "the night uses the paper zzz");
+  assert.ok(picture.calls.some(([key, prop]) => key === "loop" && prop === "opacity"), "the picture blinks");
+  assert.equal(callOf(dark, "opacity"), 1, "a sleeping house shows its z's");
+
+  const light = renderScene(units, { width: 1200, height: 240, tone: "light" }).nodes.get(id);
+  assert.ok(!light.kids.some((kid) => kid.src), "the light keeps the text");
+  assert.ok(light.kids.some((kid) => kid.texts[0] === "z z z"), "the light's z's are still letters");
+
+  const awake = placeSessions(items.map((item) => ({ ...item, display: "other" })), 1200).units;
+  const hidden = renderScene(awake, { width: 1200, height: 240, tone: "dark" }).nodes.get(id);
+  assert.equal(callOf(hidden, "opacity"), 0, "a house that is not asleep shows none");
 });

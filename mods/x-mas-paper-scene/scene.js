@@ -9,7 +9,8 @@ import {
   NUMBER_SIZE, NUMBER_H, NUMBER_RADIUS, NUMBER_PAD, NUMBER_AT, NAME_SIZE, LABEL_MIN_W, NAME_TOP,
   ASK_SIZE, ASK_H, ASK_PAD, ASK_RADIUS, ASK_MAX_W, ASK_GAP, ASK_MIN_W, ASK_LIFT, ASK_MARGIN, ASK_CLEAR,
   OVERFLOW_Y, OVERFLOW_W, OVERFLOW_H, ZZZ_SIZE, LAND_BAND, LAND_COLORS, FADE_MS, SMOKE_MS, WALK_MS, ZZZ_MS, BELL_MS,
-  houseOf, propOf, clipText, layoutBubbles,
+  SLEIGH_H, SLEIGH_Y, SLEIGH_MS, GARLAND_H, GARLAND_EAVE, FLAKE_BOTTOM, FLAKES, STARS, ZZZ_IMG_H,
+  houseOf, propOf, extraOf, clipText, layoutBubbles,
 } from "./model.js";
 
 const ART = "mods/x-mas-paper-scene/art/";
@@ -29,6 +30,53 @@ function sprite(name, x, base, h) {
 }
 
 const fade = (el, on) => el.opacity(on ? 1 : 0).transition("opacity", { duration: FADE_MS });
+
+// The sky above the far hill: the dark tone's stars, the paper snow in both tones, and the sleigh.
+// The sleigh keeps its whole height above every bubble the scene placed, as the brief asks.
+function skyNodes(o, bubbles) {
+  const k = o.k, W = o.width, out = [];
+  if (o.tone === "dark") {
+    STARS.forEach((star, i) => {
+      const b = box(extraOf("star", o.tone), star.h * k);
+      const el = image(b.file).id(`paper-star-${i}`).absolute().left(r2(star.x * W - b.ax)).top(r2(star.y * k)).w(b.w).h(b.h);
+      if (star.ms) el.loop("opacity", { from: 1, to: 0.3, period: star.ms, easing: "ease-in-out" });
+      out.push(el);
+    });
+  }
+  FLAKES.forEach((flake, i) => {
+    const b = box(extraOf("snowflake", o.tone), flake.h * k);
+    out.push(image(b.file).id(`paper-flake-${i}`).absolute()
+      .left(r2(flake.x * W - b.ax)).top(r2(flake.y * k)).w(b.w).h(b.h)
+      .opacity(o.tone === "dark" ? 1 : 0.9)
+      .loop("top", { from: r2(flake.y * k), to: r2(FLAKE_BOTTOM * k), period: flake.ms, easing: "linear" }));
+  });
+  const sleigh = box(extraOf("sleigh", o.tone), SLEIGH_H * k);
+  let top = SLEIGH_Y * k;
+  for (const bubble of bubbles) if (bubble.top < top + sleigh.h && bubble.bottom > top) top = Math.min(top, bubble.top - 2 - sleigh.h);
+  out.push(image(sleigh.file).id("paper-sleigh").absolute()
+    .left(r2(o.sleigh ? -sleigh.w - 4 : W + 4)).top(r2(Math.max(2, top))).w(sleigh.w).h(sleigh.h)
+    .transition("left", { duration: o.sleigh ? SLEIGH_MS : 0, easing: "linear" }));
+  return out;
+}
+
+// A garland hangs from the eaves of each neighbouring pair of front houses. The one pair whose
+// gap holds the big tree gets none, and the back row has no garlands.
+function garlandNodes(front, o) {
+  const sorted = [...front].sort((a, b) => a.x - b.x);
+  const out = [];
+  for (let j = 1; j < sorted.length; j += 1) {
+    const left = sorted[j - 1], right = sorted[j];
+    if (left.x * o.k < o.width / 2 && right.x * o.k > o.width / 2) continue;
+    const lh = box(houseOf(left.id, o.tone), HOUSE_H * left.scale * o.k);
+    const rh = box(houseOf(right.id, o.tone), HOUSE_H * right.scale * o.k);
+    const x0 = r2(left.x * o.k + lh.w / 2), x1 = r2(right.x * o.k - rh.w / 2);
+    if (x1 - x0 <= 0) continue;
+    const b = box(extraOf("garland", o.tone), GARLAND_H * o.k);
+    const eave = r2(left.y * o.k - lh.ay + GARLAND_EAVE * lh.h);
+    out.push(image(b.file).id(`paper-garland-${j}`).absolute().left(x0).top(eave).w(r2(x1 - x0)).h(b.h));
+  }
+  return out;
+}
 
 // One session's house: base, the lit/open overlays and the advent number over its door.
 function unitBase(unit, o) {
@@ -95,10 +143,20 @@ function unitSymbols(unit, o, house) {
   if (turn) bellEl.loop("top", { from: r2(bellTop - 2 * s), to: r2(bellTop + 2 * s), period: BELL_MS, easing: "ease-in-out" });
   out.push(bellEl);
 
-  out.push(div().id(`paper-zzz-${sidOf(unit)}`).absolute().left(r2(x - 40 * s)).top(r2(house.top - 16 * s)).w(r2(80 * s))
-    .opacity(sleeping ? 1 : 0).transition("opacity", { duration: FADE_MS })
-    .child(div().w_full().text_size(r2(ZZZ_SIZE * s)).font_family("Nunito").font_bold().text_color(o.text).child("z z z")
-      .loop("opacity", { from: 1, to: 0.15, period: ZZZ_MS, easing: "ease-in-out" })));
+  // Dark tone: the z's are the sheet's paper zzz, which reads on the night sky. The pale zzz would
+  // sink into the light sky, so the light tone keeps the text.
+  const zzz = div().id(`paper-zzz-${sidOf(unit)}`).absolute().left(r2(x - 40 * s))
+    .top(r2(house.top - (o.tone === "dark" ? ZZZ_IMG_H + 6 : 16) * s)).w(r2(80 * s))
+    .opacity(sleeping ? 1 : 0).transition("opacity", { duration: FADE_MS });
+  if (o.tone === "dark") {
+    const b = box(extraOf("zzz", o.tone), ZZZ_IMG_H * s);
+    zzz.child(image(b.file).absolute().left(r2((80 * s - b.w) / 2)).top(0).w(b.w).h(b.h)
+      .loop("opacity", { from: 1, to: 0.25, period: ZZZ_MS, easing: "ease-in-out" }));
+  } else {
+    zzz.child(div().w_full().text_size(r2(ZZZ_SIZE * s)).font_family("Nunito").font_bold().text_color(o.text).child("z z z")
+      .loop("opacity", { from: 1, to: 0.15, period: ZZZ_MS, easing: "ease-in-out" }));
+  }
+  out.push(zzz);
   return out;
 }
 
@@ -127,9 +185,10 @@ function signNodes(unit, o, built, bubble) {
 }
 
 /**
- * Every node of the scene, back to front: background, back-row houses, shadows, the tree and the
- * front-row houses, the props each state adds, then the names and bubbles.
- * o: { width, height, tone, units, overflow, colors: { text, muted, accent, surface, ground }, visit }
+ * Every node of the scene, back to front: background and sky, back-row houses, shadows, the tree
+ * and the front-row houses, the garlands between their roofs, the props each state adds, then the
+ * names and bubbles.
+ * o: { width, height, tone, units, overflow, sleigh, colors: { text, muted, accent, surface, ground }, visit }
  */
 export function sceneLayers(o) {
   const k = Math.max(0.01, o.height / 240);
@@ -137,20 +196,21 @@ export function sceneLayers(o) {
   const shared = { k, width: W, height: o.height, logicalW: W / k, tone: o.tone, visit: o.visit,
     text: o.colors.text, muted: o.colors.muted, accent: o.colors.accent, surface: o.colors.surface,
     numberPlate: o.colors.ground, treeX: W / 2 };
-  const nodes = [];
+  const base = [];
   const tileW = ART_W * k;
   const bg = ART + (o.tone === "dark" ? ART_FILE.bg_dark : ART_FILE.bg_light);
-  for (let i = 0; i * tileW < W; i++) nodes.push(image(bg).absolute().left(r2(i * tileW)).top(0).w(r2(tileW + 1)).h(r2(o.height)));
-  nodes.push(div().id("paper-land").absolute().left(0).top(r2(o.height - LAND_BAND * k)).w(W).h(r2(LAND_BAND * k))
+  for (let i = 0; i * tileW < W; i++) base.push(image(bg).absolute().left(r2(i * tileW)).top(0).w(r2(tileW + 1)).h(r2(o.height)));
+  base.push(div().id("paper-land").absolute().left(0).top(r2(o.height - LAND_BAND * k)).w(W).h(r2(LAND_BAND * k))
     .bg(o.tone === "dark" ? LAND_COLORS.dark : LAND_COLORS.light));
 
   const back = o.units.filter((u) => u.row === "back");
   const front = o.units.filter((u) => u.row === "front");
   const bases = new Map();
+  const houses = [];
   for (const unit of back) {
     const built = unitBase(unit, shared);
     bases.set(unit, built);
-    nodes.push(built.node);
+    houses.push(built.node);
   }
 
   // Shadows lie between the rows: under the front houses only, behind their bases.
@@ -158,29 +218,22 @@ export function sceneLayers(o) {
   for (const unit of front) {
     const house = box(houseOf(unit.id, o.tone), HOUSE_H * k);
     const w = house.w * 1.3, h = 14 * k;
-    nodes.push(image(shadowFile).absolute().left(r2(unit.x * k - w / 2)).top(r2(unit.y * k - h / 2)).w(r2(w)).h(r2(h)));
+    houses.push(image(shadowFile).absolute().left(r2(unit.x * k - w / 2)).top(r2(unit.y * k - h / 2)).w(r2(w)).h(r2(h)));
   }
 
   // The big tree, then the front-row houses.
   const tree = box(propOf("tree", o.tone), TREE_H * k);
   const treeBase = TREE_Y * k;
-  nodes.push(image(shadowFile).absolute().left(r2(W / 2 - (tree.w * 1.4) / 2)).top(r2(treeBase - 10 * k))
+  houses.push(image(shadowFile).absolute().left(r2(W / 2 - (tree.w * 1.4) / 2)).top(r2(treeBase - 10 * k))
     .w(r2(tree.w * 1.4)).h(r2(16 * k)));
-  nodes.push(image(tree.file).absolute().left(r2(W / 2 - tree.ax)).top(r2(treeBase - tree.ay)).w(tree.w).h(tree.h));
+  houses.push(image(tree.file).absolute().left(r2(W / 2 - tree.ax)).top(r2(treeBase - tree.ay)).w(tree.w).h(tree.h));
   for (const unit of front) {
     const built = unitBase(unit, shared);
     bases.set(unit, built);
-    nodes.push(built.node);
+    houses.push(built.node);
   }
 
-  // Every house's own props, back row first so the front row stays in front of it.
-  for (const unit of [...back, ...front]) {
-    const built = bases.get(unit);
-    if (built) nodes.push(...unitSymbols(unit, shared, built));
-  }
-  const snowman = box(propOf("snowman", o.tone), SNOWMAN_H * k);
-  nodes.push(image(snowman.file).absolute().left(r2(W - SNOWMAN_X * k - snowman.ax)).top(r2(SNOWMAN_Y * k - snowman.ay)).w(snowman.w).h(snowman.h));
-
+  // The bubbles are laid out before the sky, since the sleigh keeps clear of them.
   const bubbleOpts = {
     width: W, size: ASK_SIZE * k, pad: ASK_PAD * k, maxW: Math.min(ASK_MAX_W * k, W - 12 * k),
     minW: ASK_MIN_W * k, bh: ASK_H * k, gap: ASK_LIFT * k, margin: ASK_MARGIN * k, clear: ASK_CLEAR * k,
@@ -190,6 +243,17 @@ export function sceneLayers(o) {
     claim: unit.display === "turn",
   }));
   const bubbles = new Map(layoutBubbles(asks, bubbleOpts).map((bubble) => [bubble.id, bubble]));
+  const sky = skyNodes({ k, width: W, tone: o.tone, sleigh: o.sleigh === true }, [...bubbles.values()]);
+
+  const nodes = [...base, ...sky, ...houses, ...garlandNodes(front, shared)];
+
+  // Every house's own props, back row first so the front row stays in front of it.
+  for (const unit of [...back, ...front]) {
+    const built = bases.get(unit);
+    if (built) nodes.push(...unitSymbols(unit, shared, built));
+  }
+  const snowman = box(propOf("snowman", o.tone), SNOWMAN_H * k);
+  nodes.push(image(snowman.file).absolute().left(r2(W - SNOWMAN_X * k - snowman.ax)).top(r2(SNOWMAN_Y * k - snowman.ay)).w(snowman.w).h(snowman.h));
 
   for (const mark of o.overflow ?? []) {
     nodes.push(div().id(`paper-overflow-${mark.side}`).absolute()

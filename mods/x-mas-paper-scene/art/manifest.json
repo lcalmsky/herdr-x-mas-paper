@@ -362,6 +362,150 @@
       ],
       "category": "prop"
     },
+    "sleigh": {
+      "file": "sleigh.webp",
+      "size": [
+        59.5,
+        26.0
+      ],
+      "anchor": [
+        29.8,
+        26.0
+      ],
+      "category": "extra"
+    },
+    "garland": {
+      "file": "garland.webp",
+      "size": [
+        60.5,
+        19.0
+      ],
+      "anchor": [
+        30.2,
+        19.0
+      ],
+      "category": "extra"
+    },
+    "snowflake": {
+      "file": "snowflake.webp",
+      "size": [
+        17.5,
+        19.0
+      ],
+      "anchor": [
+        8.8,
+        19.0
+      ],
+      "category": "extra"
+    },
+    "star": {
+      "file": "star.webp",
+      "size": [
+        24.0,
+        23.0
+      ],
+      "anchor": [
+        12.0,
+        23.0
+      ],
+      "category": "extra"
+    },
+    "bubble": {
+      "file": "bubble.webp",
+      "size": [
+        28.5,
+        26.0
+      ],
+      "anchor": [
+        14.2,
+        26.0
+      ],
+      "category": "extra"
+    },
+    "zzz": {
+      "file": "zzz.webp",
+      "size": [
+        30.0,
+        22.0
+      ],
+      "anchor": [
+        15.0,
+        22.0
+      ],
+      "category": "extra"
+    },
+    "sleigh_dark": {
+      "file": "sleigh_dark.webp",
+      "size": [
+        58.5,
+        26.0
+      ],
+      "anchor": [
+        29.2,
+        26.0
+      ],
+      "category": "extra"
+    },
+    "garland_dark": {
+      "file": "garland_dark.webp",
+      "size": [
+        58.5,
+        19.0
+      ],
+      "anchor": [
+        29.2,
+        19.0
+      ],
+      "category": "extra"
+    },
+    "snowflake_dark": {
+      "file": "snowflake_dark.webp",
+      "size": [
+        17.5,
+        19.0
+      ],
+      "anchor": [
+        8.8,
+        19.0
+      ],
+      "category": "extra"
+    },
+    "star_dark": {
+      "file": "star_dark.webp",
+      "size": [
+        24.5,
+        23.0
+      ],
+      "anchor": [
+        12.2,
+        23.0
+      ],
+      "category": "extra"
+    },
+    "bubble_dark": {
+      "file": "bubble_dark.webp",
+      "size": [
+        28.0,
+        26.0
+      ],
+      "anchor": [
+        14.0,
+        26.0
+      ],
+      "category": "extra"
+    },
+    "zzz_dark": {
+      "file": "zzz_dark.webp",
+      "size": [
+        30.0,
+        22.0
+      ],
+      "anchor": [
+        15.0,
+        22.0
+      ],
+      "category": "extra"
+    },
     "shadow": {
       "file": "shadow.webp",
       "size": [

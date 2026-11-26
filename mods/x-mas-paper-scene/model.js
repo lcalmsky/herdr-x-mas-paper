@@ -27,6 +27,34 @@ export const ASK_SIZE = 11, ASK_H = 20, ASK_PAD = 6, ASK_RADIUS = 8, ASK_MAX_W =
 export const ASK_MIN_W = 48, ASK_LIFT = 4, ASK_MARGIN = 4, ASK_CLEAR = 2;
 export const OVERFLOW_Y = 198, OVERFLOW_W = 32, OVERFLOW_H = 14;
 export const ZZZ_SIZE = 11;
+// The sleigh crosses the sky right to left in SLEIGH_MS, then rests out of sight for the rest.
+// Paper snow drifts between the sky's top and the far hill: a native loop swings a property to
+// `to` and back, so each flake's fall is one half of its period and the flake rises again.
+export const SLEIGH_H = 22, SLEIGH_Y = 26, SLEIGH_MS = 18000, SLEIGH_REST_MS = 40000, SLEIGH_FIRST_MS = 600;
+// The house picture's eave line, as a share of its height from the top: where the roof's edge
+// meets the wall, so a garland's cord ends land on the two neighbouring roofs' corners.
+export const GARLAND_H = 15, GARLAND_EAVE = 0.44;
+export const FLAKE_BOTTOM = 80;
+export const FLAKES = [
+  { x: 0.09, y: 2, h: 14, ms: 26000 },
+  { x: 0.21, y: 10, h: 12, ms: 22000 },
+  { x: 0.34, y: 28, h: 16, ms: 30000 },
+  { x: 0.48, y: 4, h: 13, ms: 24000 },
+  { x: 0.61, y: 18, h: 15, ms: 20000 },
+  { x: 0.75, y: 6, h: 12, ms: 28000 },
+  { x: 0.89, y: 34, h: 14, ms: 32000 },
+];
+// The dark sky's stars; `ms` is the twinkle's opacity-loop period, 0 for a steady star.
+export const STARS = [
+  { x: 0.07, y: 8, h: 12, ms: 0 },
+  { x: 0.19, y: 20, h: 10, ms: 3600 },
+  { x: 0.3, y: 12, h: 14, ms: 0 },
+  { x: 0.43, y: 26, h: 11, ms: 4400 },
+  { x: 0.58, y: 10, h: 13, ms: 0 },
+  { x: 0.72, y: 22, h: 10, ms: 3000 },
+  { x: 0.88, y: 16, h: 12, ms: 5200 },
+];
+export const ZZZ_IMG_H = 18;
 // The background tiles carry a black strip along their bottom edge (12 px of the 2x file); the
 // scene covers that much of each tile's foot with the land's colour.
 export const LAND_BAND = 7;
@@ -42,6 +70,12 @@ export const HOUSES = {
 export const PROPS = {
   light: { tree: "tree", villager: "villager", bell: "villager_bell", snowman: "snowman", gift: "gift", stocking: "stocking", smoke: "smoke", shadow: "shadow" },
   dark: { tree: "tree_dark", villager: "villager_dark", bell: "villager_bell_dark", snowman: "snowman_dark", gift: "gift_dark", stocking: "stocking_dark", smoke: "smoke_dark", shadow: "shadow" },
+};
+// The extras sheet: the sky and roof decorations. `bubble` stays in the manifest but the scene
+// still draws its speech bubble as a div, since the picture would tear when stretched.
+export const EXTRAS = {
+  light: { sleigh: "sleigh", garland: "garland", snowflake: "snowflake", star: "star", bubble: "bubble", zzz: "zzz" },
+  dark: { sleigh: "sleigh_dark", garland: "garland_dark", snowflake: "snowflake_dark", star: "star_dark", bubble: "bubble_dark", zzz: "zzz_dark" },
 };
 export const ART_FILE = { bg_light: "bg_light.webp", bg_dark: "bg_dark.webp" };
 
@@ -100,6 +134,7 @@ export function hashIndex(key, count) {
 
 export const houseOf = (id, tone = "light") => HOUSES[tone === "dark" ? "dark" : "light"][hashIndex(id, HOUSES.light.length)];
 export const propOf = (role, tone = "light") => PROPS[tone === "dark" ? "dark" : "light"][role];
+export const extraOf = (role, tone = "light") => EXTRAS[tone === "dark" ? "dark" : "light"][role];
 
 const folder = (path) => String(path ?? "").replace(/\/+$/, "");
 
