@@ -46,9 +46,9 @@ function unitBase(unit, o) {
     .child(image(house.file).absolute().left(0).top(0).w(house.w).h(house.h));
   if (overlays.lit) group.child(fade(image(ART + overlays.lit).absolute().left(0).top(0).w(house.w).h(house.h), lit));
   if (overlays.open) group.child(fade(image(ART + overlays.open).absolute().left(0).top(0).w(house.w).h(house.h), open));
-  group.child(div().absolute().left(0).top(numberTop).w(house.w).h(r2(NUMBER_H * s))
+  group.child(div().id(`paper-number-${sidOf(unit)}`).absolute().left(0).top(numberTop).w(house.w).h(r2(NUMBER_H * s))
     .flex().items_center().justify_center()
-    .child(div().rounded(r2(NUMBER_RADIUS * s)).bg(o.numberPlate).px(r2(NUMBER_PAD * s)).py(r2(1 * s))
+    .child(div().id(`paper-number-plate-${sidOf(unit)}`).rounded(r2(NUMBER_RADIUS * s)).bg(o.numberPlate).px(r2(NUMBER_PAD * s)).py(r2(1 * s))
       .text_size(r2(NUMBER_SIZE * s)).font_family("Nunito").font_bold()
       .text_color(o.accent).child(String(unit.number))));
   return { node: group, house, top, base };
@@ -104,12 +104,12 @@ function unitSymbols(unit, o, house) {
 
 // The name under a front-row house (the back row's would run into it) and, for a session waiting
 // on the person, its question above.
-function signNodes(unit, o, house, bubble) {
+function signNodes(unit, o, built, bubble) {
   const s = unit.scale * o.k;
   const x = unit.x * o.k, base = unit.y * o.k;
   const out = [];
   if (unit.row !== "back") {
-    const labelW = Math.max(house.w, LABEL_MIN_W * s);
+    const labelW = Math.max(built.house.w, LABEL_MIN_W * s);
     out.push(div().id(`paper-name-${sidOf(unit)}`).absolute().left(r2(x - labelW / 2)).top(r2(base + NAME_TOP * s))
       .w(r2(labelW)).text_size(r2(NAME_SIZE * s)).font_family("Nunito").font_weight(600).text_color(o.text)
       .whitespace_nowrap().flex().items_center().justify_center()
@@ -141,7 +141,7 @@ export function sceneLayers(o) {
   const tileW = ART_W * k;
   const bg = ART + (o.tone === "dark" ? ART_FILE.bg_dark : ART_FILE.bg_light);
   for (let i = 0; i * tileW < W; i++) nodes.push(image(bg).absolute().left(r2(i * tileW)).top(0).w(r2(tileW + 1)).h(r2(o.height)));
-  nodes.push(div().absolute().left(0).top(r2(o.height - LAND_BAND * k)).w(W).h(r2(LAND_BAND * k))
+  nodes.push(div().id("paper-land").absolute().left(0).top(r2(o.height - LAND_BAND * k)).w(W).h(r2(LAND_BAND * k))
     .bg(o.tone === "dark" ? LAND_COLORS.dark : LAND_COLORS.light));
 
   const back = o.units.filter((u) => u.row === "back");

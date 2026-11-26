@@ -7,8 +7,9 @@ import { readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
   DISPLAY_STATES, HOUSES, PROPS, SLEEP_MS, displayState, stateOf, placeSessions, clipText, buildSessions,
-  layoutBubbles, SEAT_STEP, SEAT_MIN_STEP, HOUSE_H, TREE_H,
+  layoutBubbles, SEAT_STEP, SEAT_MIN_STEP, HOUSE_H, TREE_H, LAND_BAND, LAND_COLORS, LABEL_MIN_W, NUMBER_H, NAME_SIZE,
 } from "../mods/x-mas-paper-scene/model.js";
+import { sceneLayers } from "../mods/x-mas-paper-scene/scene.js";
 import { ASSETS } from "../mods/x-mas-paper-scene/manifest.js";
 import { demoSessions, demoRead } from "../mods/x-mas-paper-scene/demo.js";
 
@@ -126,6 +127,42 @@ test("a raised bubble stays below the scene's top and is slid aside", () => {
   assert.equal(overlapsAmong(boxes), false, "the second slid past the first");
 });
 
+// The back row starts its bubbles 12 px higher, so a front bubble and a back bubble that share
+// neither level nor row can still cover each other if the layout only looks at its own row.
+const QUESTIONS = [
+  "Should I merge the gift tracker branch now please?",
+  "Publish the cocoa guide to the site?",
+  "Allow the sleigh router to run",
+];
+const askOf = (unit, question) => ({ id: unit.id, text: question, x: unit.x, top: unit.row === "back" ? 66 : 78, claim: true });
+const optsAt = (width) => ({ ...ASK_OPTS, width, maxW: Math.min(180, width - 12) });
+
+test("bubbles clear the other row as well as their own", () => {
+  // 13 sessions at 1200: the front row takes 12 seats and s12 goes behind them.
+  const units = placeSessions(Array.from({ length: 13 }, (_, i) => ({ id: `s${i}` })), 1200).units;
+  const [s1, s2, s12] = ["s1", "s2", "s12"].map((id) => units.find((u) => u.id === id));
+  assert.deepEqual([s1.row, s1.x, s2.row, s2.x, s12.row, s12.x], ["front", 500, "front", 784, "back", 700]);
+  const boxes = layoutBubbles([s1, s2, s12].map((unit) => askOf(unit, QUESTIONS[0])), optsAt(1200));
+  assert.equal(boxes.length, 3);
+  assert.equal(overlapsAmong(boxes), false, "the back bubble stays clear of both front ones");
+});
+
+test("two thousand scenes of real seat positions never overlap a bubble", () => {
+  let seed = 1;
+  const rnd = () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296;
+  for (let i = 0; i < 2000; i += 1) {
+    const width = 700 + Math.floor(rnd() * 1701);
+    const count = 1 + Math.floor(rnd() * 14);
+    const units = placeSessions(Array.from({ length: count }, (_, j) => ({ id: `r${j}` })), width).units;
+    const asks = units.map((unit) => askOf(unit, QUESTIONS[Math.floor(rnd() * QUESTIONS.length)]));
+    const boxes = layoutBubbles(asks, optsAt(width));
+    assert.equal(overlapsAmong(boxes), false, `scene ${i}: width ${width}, ${count} sessions`);
+    for (const box of boxes) {
+      assert.ok(box.left >= 0 && box.right <= width, `scene ${i}: ${box.id} stays in the scene`);
+    }
+  }
+});
+
 test("a one-line sign is cut at a Korean word, never inside one", () => {
   const line = "눈사람이 크리스마스 선물을 포장하고 있습니다";
   const cut = clipText(line, 120, 11);
@@ -163,4 +200,93 @@ test("every asset the village names is in the manifest, dark names included", ()
     }
   }
   assert.ok(files.has("bg_light.webp") && files.has("bg_dark.webp"), "both backgrounds are in art/");
+});
+
+// The scene's nodes as the stub records them, for one render at a tone and height. The colours
+// are main.js's TOKENS, which is what sceneLayers is given in the real window.
+const COLORS = {
+  light: { text: "#3A3530", muted: "#8A7868", accent: "#C8423B", surface: "#FFFDF8", ground: "#FBF8F2" },
+  dark: { text: "#DCE3EE", muted: "#8A94A8", accent: "#F2C46D", surface: "#18203A", ground: "#1E2A44" },
+};
+const round2 = (n) => Math.round(n * 100) / 100;
+const callOf = (node, name) => node.calls.find(([key]) => key === name)?.[1];
+function renderScene(units, { width, height = 240, tone = "light" }) {
+  globalThis.uiIds = [];
+  globalThis.uiNodes = new Map();
+  globalThis.uiSizes = new Map();
+  try {
+    sceneLayers({ width, height, tone, units, overflow: [], colors: COLORS[tone], visit() {} });
+    return { ids: [...globalThis.uiIds], nodes: new Map(globalThis.uiNodes), sizes: new Map(globalThis.uiSizes) };
+  } finally {
+    delete globalThis.uiIds;
+    delete globalThis.uiNodes;
+    delete globalThis.uiSizes;
+  }
+}
+const demoUnits = (width) => {
+  const sessions = demoSessions(NOW);
+  return placeSessions(buildSessions({ sessions, read: new Set(demoRead(sessions)), now: NOW }), width).units;
+};
+
+test("the land band closes the block's foot in the mode's own colour", () => {
+  const units = placeSessions([{ id: "a", name: "a" }], 1200).units;
+  for (const height of [240, 320]) {
+    const k = height / 240;
+    for (const tone of ["light", "dark"]) {
+      const { nodes, sizes } = renderScene(units, { width: 1200, height, tone });
+      const band = nodes.get("paper-land");
+      assert.ok(band, `${tone} at ${height}: the band is drawn`);
+      assert.equal(callOf(band, "top"), round2(height - LAND_BAND * k), `${tone} at ${height}: the band starts at the foot`);
+      assert.deepEqual(sizes.get("paper-land"), { w: 1200, h: round2(LAND_BAND * k) }, `${tone} at ${height}: the band spans the block`);
+      assert.equal(band.bg, LAND_COLORS[tone], `${tone} at ${height}: the band takes the land's colour`);
+    }
+  }
+});
+
+test("every house hangs its door number on a plate over the ground", () => {
+  const units = demoUnits(1140);
+  for (const tone of ["light", "dark"]) {
+    const { nodes, sizes } = renderScene(units, { width: 1140, height: 240, tone });
+    for (const unit of units) {
+      const size = sizes.get(`paper-number-${unit.id}`);
+      const plate = nodes.get(`paper-number-plate-${unit.id}`);
+      assert.ok(size && plate, `${tone}: ${unit.id} has a number plate`);
+      assert.equal(size.h, round2(NUMBER_H * unit.scale), `${tone}: ${unit.id}'s plate row is ${round2(NUMBER_H * unit.scale)} tall`);
+      assert.deepEqual(plate.texts, [String(unit.number)], `${tone}: ${unit.id}'s door says its number`);
+      assert.equal(plate.ink, COLORS[tone].accent, `${tone}: ${unit.id}'s number is in the accent`);
+      assert.equal(plate.bg, COLORS[tone].ground, `${tone}: ${unit.id}'s plate is the ground's colour`);
+    }
+  }
+});
+
+test("a front-row house's name sits under it, inside the block and in the text colour", () => {
+  const units = demoUnits(1140);
+  for (const tone of ["light", "dark"]) {
+    const { nodes, sizes } = renderScene(units, { width: 1140, height: 240, tone });
+    for (const unit of units.filter((u) => u.row === "front")) {
+      const node = nodes.get(`paper-name-${unit.id}`);
+      assert.ok(node, `${unit.id} has its name node`);
+      const left = callOf(node, "left");
+      const top = callOf(node, "top");
+      const size = sizes.get(`paper-name-${unit.id}`);
+      assert.ok([left, top, size.w].every(Number.isFinite), `${unit.id}'s box is real (left ${left}, top ${top}, w ${size.w})`);
+      assert.ok(size.w >= LABEL_MIN_W, `${unit.id}'s label is at least ${LABEL_MIN_W} px wide`);
+      assert.ok(left >= 0 && left + size.w <= 1140, `${unit.id}'s name stays inside the block`);
+      assert.ok(top >= 0 && top + NAME_SIZE <= 240, `${unit.id}'s name ends inside the block`);
+      assert.ok(!node.calls.some(([key, value]) => key === "opacity" && value !== 1), `${unit.id}'s name is fully opaque`);
+      assert.notEqual(node.ink, COLORS[tone].ground, `${unit.id}'s name is not the ground's colour`);
+      assert.equal(node.texts.length, 1);
+      assert.ok(node.texts[0].length > 0, `${unit.id}'s name is not empty`);
+    }
+  }
+});
+
+test("only the front row is named; a back-row house has no label", () => {
+  const placed = placeSessions(Array.from({ length: 9 }, (_, i) => ({ id: `b${i}`, name: `Back ${i}` })), 700);
+  const back = placed.units.filter((u) => u.row === "back");
+  const front = placed.units.filter((u) => u.row === "front");
+  assert.ok(back.length > 0, "the narrow scene has a back row");
+  const { ids } = renderScene(placed.units, { width: 700, height: 240 });
+  for (const unit of front) assert.ok(ids.includes(`paper-name-${unit.id}`), `${unit.id} is named`);
+  for (const unit of back) assert.ok(!ids.includes(`paper-name-${unit.id}`), `${unit.id} behind the front houses is not`);
 });

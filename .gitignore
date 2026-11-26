@@ -2,3 +2,5 @@ node_modules
 .DS_Store
 *.log
 gallery/
+gpui-kit.d.ts
+jsconfig.json

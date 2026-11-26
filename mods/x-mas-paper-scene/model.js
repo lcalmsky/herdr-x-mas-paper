@@ -22,7 +22,7 @@ export const HOUSE_H = 92, HOUSE_GIFT_X = 16, HOUSE_VILLAGER_X = 30, HOUSE_BELL_
 export const CHIMNEY_X = 0.28, CHIMNEY_Y = 6, SMOKE_H = 18, SMOKE_RISE = 14;
 export const VILLAGER_H = 38, GIFT_H = 18, STOCKING_H = 20, SNOWMAN_H = 42, SNOWMAN_Y = 198, SNOWMAN_X = 45;
 export const NUMBER_SIZE = 11, NUMBER_H = 16, NUMBER_RADIUS = 3, NUMBER_PAD = 3, NUMBER_AT = 0.4;
-export const NAME_SIZE = 10, LABEL_MIN_W = 96, NAME_TOP = 2;
+export const NAME_SIZE = 11, LABEL_MIN_W = 96, NAME_TOP = 2;
 export const ASK_SIZE = 11, ASK_H = 20, ASK_PAD = 6, ASK_RADIUS = 8, ASK_MAX_W = 180, ASK_GAP = 8;
 export const ASK_MIN_W = 48, ASK_LIFT = 4, ASK_MARGIN = 4, ASK_CLEAR = 2;
 export const OVERFLOW_Y = 198, OVERFLOW_W = 32, OVERFLOW_H = 14;
@@ -304,69 +304,75 @@ export function clipText(text, maxPx, size) {
   return out ? `${out}…` : "…";
 }
 
-// Where the waiting sessions' bubbles go. They are laid out left to right: one that would cover
-// the bubble before it rises a level (its height plus a gap), two levels at most. With both
-// levels taken it is cut into the free span beside that neighbour, and left out when that span
-// is narrower than minW. A raised bubble stays clear of the scene's top; one that would leave it
-// is pushed sideways along the lower level instead. Asks that do not claim room (`claim: false`,
-// a session not waiting, drawn only so its bubble can fade) keep the first level.
+// Where the waiting sessions' bubbles go, left to right. Each new bubble is checked against every
+// bubble already placed, whatever its row: the back row starts its bubbles a level lower, so a
+// row-blind check lets the two rows cover each other. A bubble that would cover one goes up a
+// level (its height plus a gap), two levels at most. With both levels taken it is cut into the
+// first free span right of what blocks it, and left out when less than minW remains. No bubble may
+// leave the scene's top; one that cannot is slid aside on its own level instead. Asks that do not
+// claim room (`claim: false`, a session not waiting, drawn only so its bubble can fade) keep the
+// first level and block nothing.
 // o: { width, size, pad, maxW, bh, minW, gap, margin, clear }
 export function layoutBubbles(asks, o) {
   const { width, size, pad, maxW, bh, minW = ASK_MIN_W, gap = ASK_LIFT, margin = ASK_MARGIN, clear = ASK_CLEAR } = o;
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-  const rectOf = (x, top, w) => {
+  const touches = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+  const centred = (x, top, w) => {
     const left = clamp(x - w / 2, margin, width - w - margin);
     return { left, top, w, right: left + w, bottom: top + bh };
   };
-  const touches = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
-  const levels = [[], []];
-  // The rightmost bubble of a level that a rect would cover: the one a cut bubble follows.
-  const conflictAt = (rect, level) => levels[level]
-    .filter((p) => touches(rect, p))
-    .reduce((best, p) => (best === null || p.right > best.right ? p : best), null);
+  const placed = [];
   const out = [];
   const keep = (ask, rect, text) => {
     const item = { id: ask.id, left: rect.left, top: rect.top, w: rect.w, right: rect.right, bottom: rect.bottom, h: bh, text };
     out.push(item);
     return item;
   };
+  const blocked = (rect) => placed.some((p) => touches(rect, p));
 
-  for (const ask of [...(asks ?? [])].sort((a, b) => a.x - b.x)) {
+  // The widest cut that clears every placed bubble to the right of this level's blockers.
+  const cutAt = (level, x, top, full, text) => {
+    const at = top - level * (bh + gap);
+    if (at < clear) return null;
+    const own = centred(x, at, full);
+    let left = placed.filter((p) => touches(own, p)).reduce((right, p) => Math.max(right, p.right + gap), own.left);
+    for (let tries = 0; tries <= placed.length; tries += 1) {
+      const room = Math.min(full, width - margin - left);
+      if (room < minW) return null;
+      const line = clipText(text, room - 2 * pad, size);
+      const w = Math.min(room, textWidth(line, size) + 2 * pad);
+      if (w < minW) return null;
+      const rect = { left, top: at, w, right: left + w, bottom: at + bh };
+      const hit = placed.find((p) => touches(rect, p));
+      if (!hit) return { level, rect, text: line };
+      left = hit.right + gap;
+    }
+    return null;
+  };
+
+  const order = [...(asks ?? [])].sort((a, b) => a.x - b.x || String(a?.id ?? "").localeCompare(String(b?.id ?? "")));
+  for (const ask of order) {
     const text = String(ask?.text ?? "");
     if (!text) continue;
     const full = Math.min(maxW, textWidth(clipText(text, maxW - 2 * pad, size), size) + 2 * pad);
-    const lower = rectOf(ask.x, ask.top, full);
     if (!ask.claim) {
-      keep(ask, lower, clipText(text, full - 2 * pad, size));
+      keep(ask, centred(ask.x, ask.top, full), clipText(text, full - 2 * pad, size));
       continue;
     }
-    const lowerHit = conflictAt(lower, 0);
-    if (!lowerHit) {
-      levels[0].push(keep(ask, lower, clipText(text, full - 2 * pad, size)));
+    let box = null;
+    for (let level = 0; level < 2 && !box; level += 1) {
+      const top = ask.top - level * (bh + gap);
+      if (top < clear) break;
+      const rect = centred(ask.x, top, full);
+      if (!blocked(rect)) box = keep(ask, rect, clipText(text, full - 2 * pad, size));
+    }
+    if (box) {
+      placed.push(box);
       continue;
     }
-    const raised = rectOf(ask.x, ask.top - bh - gap, full);
-    const upperHit = conflictAt(raised, 1);
-    if (!upperHit && raised.top >= clear) {
-      levels[1].push(keep(ask, raised, clipText(text, full - 2 * pad, size)));
-      continue;
-    }
-    if (raised.top < clear) {
-      const left = clamp(lowerHit.right + gap, margin, width - full - margin);
-      levels[0].push(keep(ask, { left, top: lower.top, w: full, right: left + full, bottom: lower.bottom }, clipText(text, full - 2 * pad, size)));
-      continue;
-    }
-    const fits = [[0, lower, lowerHit], [1, raised, upperHit]].flatMap(([level, rect, hit]) => {
-      const room = Math.min(rect.w, width - margin - (hit.right + gap));
-      if (room < minW) return [];
-      const cut = clipText(text, room - 2 * pad, size);
-      const w = Math.min(room, textWidth(cut, size) + 2 * pad);
-      return w >= minW ? [{ level, top: rect.top, hit, w, text: cut }] : [];
-    }).sort((a, b) => b.w - a.w);
-    if (!fits.length) continue;
-    const best = fits[0];
-    const left = best.hit.right + gap;
-    levels[best.level].push(keep(ask, { left, top: best.top, w: best.w, right: left + best.w, bottom: best.top + bh }, best.text));
+    const best = [cutAt(0, ask.x, ask.top, full, text), cutAt(1, ask.x, ask.top, full, text)]
+      .filter(Boolean).sort((a, b) => b.rect.w - a.rect.w)[0];
+    if (best) placed.push(keep(ask, best.rect, best.text));
   }
   return out;
 }
