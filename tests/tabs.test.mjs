@@ -138,5 +138,5 @@ test("the compact bar floating over the office narrows names, drops the side-pan
   assert.deepEqual(full.shape, barShape(false));
   assert.ok(full.ids.includes("panel-files") && full.ids.includes("panel-changes"), "the full bar keeps Files and Changes");
   assert.ok(!compact.ids.includes("panel-files") && !compact.ids.includes("panel-changes"), "the compact bar leaves them out");
-  assert.ok(compact.ids.includes("tab-demo-tab-orbit") && compact.ids.includes("tab-new"), "tabs and + stay");
+  assert.ok(compact.ids.includes("tab-demo-tab-snow") && compact.ids.includes("tab-new"), "tabs and + stay");
 });

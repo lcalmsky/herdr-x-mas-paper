@@ -8,6 +8,9 @@ export const SLEEP_MS = 30 * 60 * 1000;
 export const BACK_SCALE = 0.72;
 export const SEAT_FIRST = 130;
 export const SEAT_STEP = 110;
+export const SEAT_MIN_STEP = 84;
+// Half the drawn tree and half the widest drawn house plus 4 px: the nearest front seat's clearance.
+export const SEAT_TREE_CLEAR = 100;
 export const EDGE_CLEAR = 70;
 export const DISPLAY_STATES = ["working", "turn", "unread", "sleeping", "other"];
 
@@ -231,10 +234,10 @@ export function countStates(items) {
 }
 
 // House seats on the front hill, right of the tree first. The outermost 70 px of the scene stay empty.
-export function seatXs(width) {
+export function seatXs(width, first = SEAT_FIRST, step = SEAT_STEP) {
   const mid = width / 2, out = [];
   for (let k = 0; ; k++) {
-    const d = SEAT_FIRST + k * SEAT_STEP;
+    const d = first + k * step;
     const pair = [mid + d, mid - d].filter((x) => x >= EDGE_CLEAR && x <= width - EDGE_CLEAR);
     if (!pair.length) break;
     out.push(...pair);
@@ -242,11 +245,23 @@ export function seatXs(width) {
   return out;
 }
 
+// The widest front-row pitch that seats `count` sessions: from SEAT_STEP down to SEAT_MIN_STEP. The
+// first seat keeps that ratio, but never closer to the tree than SEAT_TREE_CLEAR.
+export function seatPlan(width, count) {
+  for (let step = SEAT_STEP; step > SEAT_MIN_STEP; step -= 1) {
+    const first = Math.max(SEAT_TREE_CLEAR, Math.round((SEAT_FIRST * step) / SEAT_STEP));
+    const xs = seatXs(width, first, step);
+    if (xs.length >= count) return { xs, first, step };
+  }
+  const first = Math.max(SEAT_TREE_CLEAR, Math.round((SEAT_FIRST * SEAT_MIN_STEP) / SEAT_STEP));
+  return { xs: seatXs(width, first, SEAT_MIN_STEP), first, step: SEAT_MIN_STEP };
+}
+
 // Sessions fill the front row first, then a smaller back row; what is left becomes one `+N` at
 // each end. Every x stays inside the scene.
 export function placeSessions(items, width) {
-  const slots = seatXs(width);
   const list = items ?? [];
+  const { xs: slots, step } = seatPlan(width, list.length);
   const front = list.slice(0, slots.length).map((item, i) => ({ ...item, x: slots[i], y: FRONT_Y, scale: 1, row: "front", number: i + 1 }));
   const back = list.slice(slots.length, slots.length * 2).map((item, i) => ({ ...item, x: slots[i], y: BACK_Y, scale: BACK_SCALE, row: "back", number: slots.length + i + 1 }));
   const hidden = Math.max(0, list.length - front.length - back.length);
@@ -256,7 +271,7 @@ export function placeSessions(items, width) {
     { side: "left", x: left, text: `+${hidden}` },
     { side: "right", x: right, text: `+${hidden}` },
   ] : [];
-  return { units: [...front, ...back], hidden, overflow };
+  return { units: [...front, ...back], hidden, overflow, step };
 }
 
 // An approximate text width: CJK and Hangul take a full em, Latin about half. The scene cuts its

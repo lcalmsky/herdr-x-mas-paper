@@ -7,7 +7,7 @@ import { readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
   DISPLAY_STATES, HOUSES, PROPS, SLEEP_MS, displayState, stateOf, placeSessions, clipText, buildSessions,
-  layoutBubbles,
+  layoutBubbles, SEAT_STEP, SEAT_MIN_STEP, HOUSE_H, TREE_H,
 } from "../mods/x-mas-paper-scene/model.js";
 import { ASSETS } from "../mods/x-mas-paper-scene/manifest.js";
 import { demoSessions, demoRead } from "../mods/x-mas-paper-scene/demo.js";
@@ -36,31 +36,52 @@ test("a session's model state becomes one of the five pictures", () => {
   assert.deepEqual([...DISPLAY_STATES], ["working", "turn", "unread", "sleeping", "other"]);
 });
 
-test("seats fill the front hill, then a smaller back row, then +N at both ends", () => {
-  const W = 1200;
-  const cases = [
-    [0, 0, 0, 0],
-    [1, 1, 0, 0],
-    [2, 2, 0, 0],
-    [9, 8, 1, 0],
-    [30, 8, 8, 2],
-  ];
-  for (const [count, front, back, plus] of cases) {
-    const list = Array.from({ length: count }, (_, i) => ({ id: `s-${i}` }));
-    const placed = placeSessions(list, W);
-    assert.equal(placed.units.filter((u) => u.row === "front").length, front, `${count} sessions: front row`);
-    assert.equal(placed.units.filter((u) => u.row === "back").length, back, `${count} sessions: back row`);
-    assert.equal(placed.overflow.length, plus, `${count} sessions: +N marks`);
-    assert.equal(placed.hidden, count - front - back, `${count} sessions: hidden count`);
-    for (const unit of placed.units) assert.ok(unit.x > 0 && unit.x < W, `${count} sessions: seat ${unit.x} inside`);
-    for (const mark of placed.overflow) {
-      assert.ok(mark.x > 0 && mark.x < W, `${count} sessions: +N at ${mark.x} inside`);
-      assert.equal(mark.text, `+${count - front - back}`);
-    }
+const drawnW = (name, height) => ASSETS[name].size[0] * (height / ASSETS[name].size[1]);
+const HOUSE_DRAWN_W = Math.max(...[...HOUSES.light, ...HOUSES.dark].map((name) => drawnW(name, HOUSE_H)));
+const TREE_DRAWN_W = drawnW("tree", TREE_H);
+
+test("the front row closes its pitch before a session takes the back row", () => {
+  const W = 1060;
+  const list = Array.from({ length: 9 }, (_, i) => ({ id: `s-${i}` }));
+  const placed = placeSessions(list, W);
+  const front = placed.units.filter((u) => u.row === "front").sort((a, b) => a.x - b.x);
+  assert.equal(front.length, 9, "nine sessions sit in the front row");
+  assert.equal(placed.units.length, 9, "nothing goes to the back row");
+  assert.ok(placed.step < SEAT_STEP, `the pitch narrowed from ${SEAT_STEP} (got ${placed.step})`);
+  assert.ok(placed.step >= SEAT_MIN_STEP, `the pitch keeps its minimum (got ${placed.step})`);
+  for (let i = 1; i < front.length; i += 1) {
+    assert.ok(front[i].x - front[i - 1].x >= HOUSE_DRAWN_W,
+      `houses at ${front[i - 1].x} and ${front[i].x} keep their boxes apart`);
   }
-  // The nearest right-hand seat, and its mirror, come first.
-  assert.deepEqual(placeSessions([{ id: "a" }, { id: "b" }], W).units.map((u) => u.x), [730, 470]);
-  assert.deepEqual(placeSessions([{ id: "a" }], W).units.map((u) => u.number), [1]);
+  const nearest = Math.min(...front.map((u) => Math.abs(u.x - W / 2)));
+  assert.ok(nearest - HOUSE_DRAWN_W / 2 - TREE_DRAWN_W / 2 >= 4, "the nearest house clears the tree by 4 px");
+  // 700 px: even the narrowest pitch runs out, so the rest takes the back row.
+  const narrow = placeSessions(list, 700);
+  assert.equal(narrow.units.filter((u) => u.row === "front").length, 6, "six fit the front row at 700");
+  assert.equal(narrow.units.filter((u) => u.row === "back").length, 3, "the other three go behind");
+  assert.equal(narrow.step, SEAT_MIN_STEP, "the pitch stops at its minimum");
+});
+
+test("with a handful of sessions the front row keeps its default pitch", () => {
+  const placed = placeSessions([{ id: "a" }, { id: "b" }], 1200);
+  assert.deepEqual(placed.units.map((u) => u.x), [730, 470]);
+  assert.equal(placed.step, SEAT_STEP);
+  assert.deepEqual(placeSessions([{ id: "a" }], 1200).units.map((u) => u.number), [1]);
+});
+
+test("more sessions than both rows hold end in +N marks", () => {
+  const W = 1200;
+  const list = Array.from({ length: 30 }, (_, i) => ({ id: `s-${i}` }));
+  const placed = placeSessions(list, W);
+  const front = placed.units.filter((u) => u.row === "front").length;
+  const back = placed.units.filter((u) => u.row === "back").length;
+  assert.equal(placed.overflow.length, 2, "one +N at each end");
+  assert.equal(placed.hidden, 30 - front - back);
+  for (const unit of placed.units) assert.ok(unit.x > 0 && unit.x < W, `seat ${unit.x} inside`);
+  for (const mark of placed.overflow) {
+    assert.ok(mark.x > 0 && mark.x < W, `+N at ${mark.x} inside`);
+    assert.equal(mark.text, `+${placed.hidden}`);
+  }
 });
 
 // The scene's bubbles at scale 1, as scene.js passes them.

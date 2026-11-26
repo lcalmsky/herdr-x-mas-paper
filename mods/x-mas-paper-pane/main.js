@@ -35,7 +35,7 @@ function folder(cwd) {
 }
 
 // The invented pane of preview pictures (props().demo).
-const DEMO_PANE = { pane: "demo", terminal: null, title: "claude — orbit", cwd: null, branch: "auth-cleanup",
+const DEMO_PANE = { pane: "demo", terminal: null, title: "claude — snow", cwd: null, branch: "snow-api-limit",
   program: null, status: null, focused: true, zoomed: false };
 
 export default class Pane extends View {

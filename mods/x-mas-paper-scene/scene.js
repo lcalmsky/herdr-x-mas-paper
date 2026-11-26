@@ -102,16 +102,19 @@ function unitSymbols(unit, o, house) {
   return out;
 }
 
-// The name under the house and, for a session waiting on the person, its question above.
+// The name under a front-row house (the back row's would run into it) and, for a session waiting
+// on the person, its question above.
 function signNodes(unit, o, house, bubble) {
   const s = unit.scale * o.k;
   const x = unit.x * o.k, base = unit.y * o.k;
   const out = [];
-  const labelW = Math.max(house.w, LABEL_MIN_W * s);
-  out.push(div().id(`paper-name-${sidOf(unit)}`).absolute().left(r2(x - labelW / 2)).top(r2(base + NAME_TOP * s))
-    .w(r2(labelW)).text_size(r2(NAME_SIZE * s)).font_family("Nunito").font_weight(600).text_color(o.text)
-    .whitespace_nowrap().flex().items_center().justify_center()
-    .child(clipText(unit.name, labelW - 4 * s, NAME_SIZE * s)));
+  if (unit.row !== "back") {
+    const labelW = Math.max(house.w, LABEL_MIN_W * s);
+    out.push(div().id(`paper-name-${sidOf(unit)}`).absolute().left(r2(x - labelW / 2)).top(r2(base + NAME_TOP * s))
+      .w(r2(labelW)).text_size(r2(NAME_SIZE * s)).font_family("Nunito").font_weight(600).text_color(o.text)
+      .whitespace_nowrap().flex().items_center().justify_center()
+      .child(clipText(unit.name, labelW - 4 * s, NAME_SIZE * s)));
+  }
   if (bubble) {
     out.push(div().id(`paper-ask-${sidOf(unit)}`).absolute().left(r2(bubble.left)).top(r2(bubble.top))
       .w(r2(bubble.w)).h(r2(bubble.h))

@@ -6,20 +6,30 @@ import { theme, fonts, settings } from "herdr";
 
 const LINE = 19;
 const BLANK = null;
+const RULE = "  ──────────────────────────────────────────────────────────────────────────────────────────────────────────";
 
 const LINES = [
-  [["snow-api ❯ ", "accent"], ["make the gift list sync retry twice", "ink"]],
+  [["snow-api ❯ ", "accent"], ["run the sleigh route tests and print the gift sync table", "ink"]],
   BLANK,
-  [["● ", "accent"], ["I'll read the sync job and the queue it uses first.", "ink"]],
-  [["  └ Read src/gift/sync.js (74 lines)", "dim"]],
-  [["  └ Read src/gift/queue.js (41 lines)", "dim"]],
+  [["● ", "accent"], ["I'll read the route suite and the gift tracker, then rerun it on the ridge.", "ink"]],
+  [["  └ Read tests/sleigh/route.test.js (218 lines)", "dim"]],
+  [["  └ Read src/gift/tracker.js (96 lines)", "dim"]],
   BLANK,
-  [["● ", "accent"], ["The queue already backs off on its own, so failed rows", "ink"]],
-  [["  go through it now.", "ink"]],
-  [["  └ Updated src/gift/sync.js (+14 −3)", "dim"]],
-  [["  └ Updated src/gift/sync.test.js (+26)", "dim"]],
+  [["● ", "accent"], ["Three routes still fail on the north ridge: retries run before the queue writes a gift row, so packs leave empty.", "ink"]],
+  [["  └ Updated src/gift/tracker.js (+18 −6)", "dim"]],
+  [["  └ Updated src/gift/queue.js (+4 −2)", "dim"]],
   BLANK,
-  [["✓ ", "green"], ["9 gift sync tests pass — 1.8 s", "ink"]],
+  [["  ✓ ", "green"], ["sleigh route suite — branch snow-api-limit, 3 routes, 73 gifts, run at 04:12", "ink"]],
+  [["  route          packages    gifts      avg latency   retries   backlog   result", "ink"]],
+  [[RULE, "dim"]],
+  [["  north-ridge    24 / 24     26 / 26    182 ms        3         2         PASS (2 fixed)", "ink"]],
+  [["  cocoa-lane     18 / 18     19 / 19    141 ms        0         0         PASS", "ink"]],
+  [["  chimney-run    31 / 31     28 / 28    209 ms        1         1         PASS", "ink"]],
+  [[RULE, "dim"]],
+  [["  ✓ ", "green"], ["3 of 3 routes pass · 73 gifts tracked · 9.4 s wall time · 0 dropped rows · retry window 2 min", "ink"]],
+  BLANK,
+  [["● ", "accent"], ["The queue now drains before the next bell, so every package has a pack when the sleigh leaves at dawn.", "ink"]],
+  [["  └ Updated tests/sleigh/route.test.js (+34 −9) and src/gift/tracker.js (+21 −6)", "dim"]],
   BLANK,
   [["snow-api ❯ ", "accent"]],
 ];

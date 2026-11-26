@@ -38,9 +38,9 @@ const FOCUS_WATCH_MS = 100;
 const NAME_WATCH_MS = 1000;
 const NAME_RETRY_MS = 10000;
 // Invented tabs for preview pictures (props().demo).
-const DEMO_SPACE = { id: "demo-space", name: "orbit", named: true, status: null, tabs: [
-  { id: "demo-tab-orbit", name: "orbit", named: true, active: true, status: null, zoomed: false },
-  { id: "demo-tab-notes", name: "notes", named: true, active: false, status: null, zoomed: false },
+const DEMO_SPACE = { id: "demo-space", name: "snow", named: true, status: null, tabs: [
+  { id: "demo-tab-snow", name: "snow", named: true, active: true, status: null, zoomed: false },
+  { id: "demo-tab-cocoa", name: "cocoa", named: true, active: false, status: null, zoomed: false },
 ] };
 
 // A tab's name from its folder: the repo it is in, else the folder itself, "~" at home.
