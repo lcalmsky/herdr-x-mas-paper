@@ -1,0 +1,134 @@
+{
+  "id": "root",
+  "type": "row",
+  "preview": "layouts/x-mas-paper.png",
+  "theme": {
+    "light": "x-mas-paper-light",
+    "dark": "x-mas-paper-dark"
+  },
+  "background": "chrome",
+  "titlebar": "none",
+  "traffic_lights": [
+    14,
+    16
+  ],
+  "terminal_padding": [
+    14,
+    12
+  ],
+  "children": [
+    {
+      "id": "work",
+      "type": "column",
+      "resizable": false,
+      "padding": 8,
+      "gap": 8,
+      "children": [
+        {
+          "id": "scene",
+          "type": "block",
+          "size": {
+            "px": 240
+          },
+          "min": 180,
+          "max": 320,
+          "window_drag": true,
+          "radius": 10,
+          "background": "surface",
+          "content": {
+            "mod": "x-mas-paper-scene",
+            "props": {
+              "demo": true
+            }
+          }
+        },
+        {
+          "id": "tabs-row",
+          "type": "block",
+          "size": {
+            "px": 30
+          },
+          "window_drag": true,
+          "content": {
+            "mod": "x-mas-paper-tabs"
+          }
+        },
+        {
+          "id": "main",
+          "type": "block",
+          "content": {
+            "tab": "active",
+            "pane": {
+              "header": {
+                "content": {
+                  "mod": "x-mas-paper-pane"
+                },
+                "reveal": "always",
+                "height": 30,
+                "position": "top"
+              },
+              "background": "background",
+              "focus": {
+                "width": 2,
+                "color": "accent"
+              },
+              "radius": 12,
+              "gap": 8,
+              "lone": true
+            }
+          },
+          "background": "chrome",
+          "radius": 12,
+          "shadow": "sm"
+        }
+      ]
+    },
+    {
+      "id": "rail",
+      "type": "column",
+      "size": {
+        "px": 248
+      },
+      "min": 200,
+      "max": 320,
+      "resizable": true,
+      "window_drag": true,
+      "background": "chrome",
+      "children": [
+        {
+          "id": "rail-spaces",
+          "type": "block",
+          "content": {
+            "mod": "x-mas-paper-rail"
+          }
+        },
+        {
+          "id": "rail-accounts",
+          "type": "block",
+          "size": {
+            "px": 300
+          },
+          "content": {
+            "mod": "x-mas-paper-accounts",
+            "props": {
+              "role": "rail"
+            }
+          }
+        },
+        {
+          "id": "rail-buttons",
+          "type": "block",
+          "size": {
+            "px": 52
+          },
+          "content": {
+            "mod": "x-mas-paper-rail",
+            "props": {
+              "role": "buttons"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

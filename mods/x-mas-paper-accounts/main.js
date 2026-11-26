@@ -21,8 +21,9 @@ const TOKENS = {
   light: { text: "#3A3530", t2: "#3A3530B3", muted: "#3A353099", faint: "#D9C3A0", line: "#F1E6D2", surface: "#FFFDF8", raised: "#FBF8F2", hover: "#E9DEC8", selected: "#F1E6D2", accent: "#C8423B", accentText: "#FFFDF8", danger: "#C8423B", ok: "#3F6B4F", warn: "#D9C3A0", card: "#FFFDF8" },
   dark: { text: "#DCE3EE", t2: "#DCE3EEB3", muted: "#DCE3EE99", faint: "#25324F", line: "#25324F", surface: "#18203A", raised: "#1E2A44", hover: "#26334F", selected: "#25324F", accent: "#F2C46D", accentText: "#1E2A44", danger: "#FFB24A", ok: "#F2C46D", warn: "#FFB24A", card: "#18203A" },
 };
-const ACCOUNT_COLORS = ["#D9805F", "#7E9FC2", "#9DB89A", "#8E6C8A"];
-const meterColor = (pct) => (pct >= 90 ? "#D9805F" : pct >= 70 ? "#E5B54F" : "#9DB89A");
+// The account-order accents and the usage meter, in the concept palette's own colours.
+const ACCOUNT_COLORS = ["#C8423B", "#3F6B4F", "#D9C3A0", "#3A3530"];
+const meterColor = (pct, k = TOKENS.light) => (pct >= 90 ? k.danger : pct >= 70 ? k.warn : k.ok);
 
 export function appearance() {
   const bg = String(theme()?.background ?? "#ffffff").replace("#", "");
@@ -733,7 +734,7 @@ export default class ClaudeAccounts extends View {
       .child(div().text_size(11).font_family(FONT).font_bold().text_color(k.faint).child(label))
       .child(div().relative().w(44).h(4).rounded(2).bg(k.line).overflow_hidden()
         .child(div().absolute().left(0).top(0).bottom(0).w(Math.round(((pct ?? 0) / 100) * 44)).rounded(2)
-          .bg(meterColor(pct ?? 0)))
+          .bg(meterColor(pct ?? 0, k)))
         .children([11, 22, 33].map((x) => div().absolute().left(x).top(0).bottom(0).w(1).bg(k.line))))
       .child(div().flex_none().text_size(12).font_family("Geist Mono")
         .text_color(hot ? k.danger : a.name === this.current ? k.text : k.muted)
@@ -769,7 +770,7 @@ export default class ClaudeAccounts extends View {
         return h_flex().h(22).w_full().items_center().gap(10)
           .child(div().w(40).flex_none().text_size(12).font_family(FONT).font_bold().text_color(k.muted).child(label))
           .child(div().flex_1().min_w(0).h(8).rounded(4).bg(k.line).overflow_hidden()
-            .child(div().h_full().w(`${pct ?? 0}%`).rounded(4).bg(meterColor(pct ?? 0))))
+            .child(div().h_full().w(`${pct ?? 0}%`).rounded(4).bg(meterColor(pct ?? 0, k))))
           .child(div().w(40).flex_none().flex().justify_end()
             .child(mono(pct == null ? "–" : `${pct}%`, hot ? k.danger : k.text)))
           // Geist Mono has no ↻, and the fallback font draws it garbled, so the arrow is an icon.
@@ -832,7 +833,7 @@ export default class ClaudeAccounts extends View {
       return h_flex().h(10).w_full().items_center().gap(6)
         .child(div().w(labelW).flex_none().text_size(10).font_family(FONT).font_bold().text_color(t.muted).child(label))
         .child(div().flex_1().min_w(0).h(7).rounded(4).bg(t.line).overflow_hidden()
-          .child(div().h_full().w(`${pct ?? 0}%`).rounded(4).bg(meterColor(pct ?? 0))))
+          .child(div().h_full().w(`${pct ?? 0}%`).rounded(4).bg(meterColor(pct ?? 0, t))))
         .child(div().w(30).flex_none().text_size(10).font_family("Geist Mono").text_color(t.muted)
           .child(pct == null ? "–" : `${pct}%`));
     };

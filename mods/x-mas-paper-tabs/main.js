@@ -248,7 +248,6 @@ export default class Tabs extends View {
     const root = layout(), w = window();
     const panel = find(root, "panel"), body = find(root, "panel-body");
     const enabled = shared("workspace.panels") ?? ["files", "changes"];
-    // TODO(scene): the scene mod publishes no notice yet; the pill stays hidden until it does.
     const notice = this.demo ? null : shared("x-mas-paper-scene.notice");
     // A scan error or a notice comes from the cards strip; its Retry or Undo asks back over the pair of keys.
     const noticePill = () => {

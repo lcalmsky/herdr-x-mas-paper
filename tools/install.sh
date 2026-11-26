@@ -27,7 +27,7 @@ if [ -f "$SHARED/tools/link-installed.sh" ] && [ -d "$SHARED_HOME" ]; then
   done
 fi
 mkdir -p "$HOME_DIR/layouts" "$HOME_DIR/themes"
-cp "$REPO/layouts/x-mas-paper.json" "$HOME_DIR/layouts/"
+cp "$REPO/layouts/x-mas-paper.json" "$REPO/layouts/x-mas-paper-demo.json" "$HOME_DIR/layouts/"
 if [ -f "$REPO/layouts/x-mas-paper.png" ]; then cp "$REPO/layouts/x-mas-paper.png" "$HOME_DIR/layouts/"; fi
 cp "$REPO/themes/x-mas-paper-light.json" "$REPO/themes/x-mas-paper-dark.json" "$HOME_DIR/themes/"
 for mod in x-mas-paper-scene x-mas-paper-rail x-mas-paper-accounts x-mas-paper-tabs x-mas-paper-pane x-mas-paper-editor; do herdr-app check "$HOME_DIR/mods/$mod"; done

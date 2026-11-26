@@ -1,0 +1,378 @@
+{
+  "version": 1,
+  "density": 2,
+  "assets": {
+    "house_red": {
+      "file": "house_red.webp",
+      "size": [
+        80.5,
+        99.5
+      ],
+      "anchor": [
+        40.2,
+        99.5
+      ],
+      "category": "house",
+      "overlays": {
+        "lit": "house_red__lit.webp",
+        "open": "house_red__open.webp"
+      }
+    },
+    "house_green_dark": {
+      "file": "house_green_dark.webp",
+      "size": [
+        80.5,
+        99.5
+      ],
+      "anchor": [
+        40.2,
+        99.5
+      ],
+      "category": "house",
+      "overlays": {
+        "lit": "house_green_dark__lit.webp",
+        "open": "house_green_dark__open.webp"
+      }
+    },
+    "house_red2": {
+      "file": "house_red2.webp",
+      "size": [
+        80.0,
+        100.0
+      ],
+      "anchor": [
+        40.0,
+        100.0
+      ],
+      "category": "house",
+      "overlays": {
+        "lit": "house_red2__lit.webp",
+        "open": "house_red2__open.webp"
+      }
+    },
+    "house_green": {
+      "file": "house_green.webp",
+      "size": [
+        80.0,
+        96.0
+      ],
+      "anchor": [
+        40.0,
+        96.0
+      ],
+      "category": "house",
+      "overlays": {
+        "lit": "house_green__lit.webp",
+        "open": "house_green__open.webp"
+      }
+    },
+    "house_charcoal": {
+      "file": "house_charcoal.webp",
+      "size": [
+        80.0,
+        96.0
+      ],
+      "anchor": [
+        40.0,
+        96.0
+      ],
+      "category": "house",
+      "overlays": {
+        "lit": "house_charcoal__lit.webp",
+        "open": "house_charcoal__open.webp"
+      }
+    },
+    "house_cream": {
+      "file": "house_cream.webp",
+      "size": [
+        80.0,
+        96.0
+      ],
+      "anchor": [
+        40.0,
+        96.0
+      ],
+      "category": "house",
+      "overlays": {
+        "lit": "house_cream__lit.webp",
+        "open": "house_cream__open.webp"
+      }
+    },
+    "house_red_dark": {
+      "file": "house_red_dark.webp",
+      "size": [
+        80.0,
+        100.0
+      ],
+      "anchor": [
+        40.0,
+        100.0
+      ],
+      "category": "house",
+      "overlays": {
+        "lit": "house_red_dark__lit.webp",
+        "open": "house_red_dark__open.webp"
+      }
+    },
+    "house_green_dark_dark": {
+      "file": "house_green_dark_dark.webp",
+      "size": [
+        80.5,
+        100.0
+      ],
+      "anchor": [
+        40.2,
+        100.0
+      ],
+      "category": "house",
+      "overlays": {
+        "lit": "house_green_dark_dark__lit.webp",
+        "open": "house_green_dark_dark__open.webp"
+      }
+    },
+    "house_red2_dark": {
+      "file": "house_red2_dark.webp",
+      "size": [
+        80.0,
+        100.0
+      ],
+      "anchor": [
+        40.0,
+        100.0
+      ],
+      "category": "house",
+      "overlays": {
+        "lit": "house_red2_dark__lit.webp",
+        "open": "house_red2_dark__open.webp"
+      }
+    },
+    "house_green_dark2": {
+      "file": "house_green_dark2.webp",
+      "size": [
+        79.5,
+        96.0
+      ],
+      "anchor": [
+        39.8,
+        96.0
+      ],
+      "category": "house",
+      "overlays": {
+        "lit": "house_green_dark2__lit.webp",
+        "open": "house_green_dark2__open.webp"
+      }
+    },
+    "house_charcoal_dark": {
+      "file": "house_charcoal_dark.webp",
+      "size": [
+        80.0,
+        96.0
+      ],
+      "anchor": [
+        40.0,
+        96.0
+      ],
+      "category": "house",
+      "overlays": {
+        "lit": "house_charcoal_dark__lit.webp",
+        "open": "house_charcoal_dark__open.webp"
+      }
+    },
+    "house_cream_dark": {
+      "file": "house_cream_dark.webp",
+      "size": [
+        80.0,
+        95.5
+      ],
+      "anchor": [
+        40.0,
+        95.5
+      ],
+      "category": "house",
+      "overlays": {
+        "lit": "house_cream_dark__lit.webp",
+        "open": "house_cream_dark__open.webp"
+      }
+    },
+    "tree": {
+      "file": "tree.webp",
+      "size": [
+        127.5,
+        188.0
+      ],
+      "anchor": [
+        63.8,
+        188.0
+      ],
+      "category": "tree"
+    },
+    "villager": {
+      "file": "villager.webp",
+      "size": [
+        22.5,
+        44.0
+      ],
+      "anchor": [
+        11.2,
+        44.0
+      ],
+      "category": "prop"
+    },
+    "villager_bell": {
+      "file": "villager_bell.webp",
+      "size": [
+        28.0,
+        44.0
+      ],
+      "anchor": [
+        14.0,
+        44.0
+      ],
+      "category": "prop"
+    },
+    "snowman": {
+      "file": "snowman.webp",
+      "size": [
+        28.5,
+        48.0
+      ],
+      "anchor": [
+        14.2,
+        48.0
+      ],
+      "category": "prop"
+    },
+    "gift": {
+      "file": "gift.webp",
+      "size": [
+        21.5,
+        24.0
+      ],
+      "anchor": [
+        10.8,
+        24.0
+      ],
+      "category": "prop"
+    },
+    "stocking": {
+      "file": "stocking.webp",
+      "size": [
+        17.5,
+        26.0
+      ],
+      "anchor": [
+        8.8,
+        26.0
+      ],
+      "category": "prop"
+    },
+    "smoke": {
+      "file": "smoke.webp",
+      "size": [
+        25.0,
+        26.0
+      ],
+      "anchor": [
+        12.5,
+        26.0
+      ],
+      "category": "prop"
+    },
+    "tree_dark": {
+      "file": "tree_dark.webp",
+      "size": [
+        127.5,
+        188.0
+      ],
+      "anchor": [
+        63.8,
+        188.0
+      ],
+      "category": "tree"
+    },
+    "villager_dark": {
+      "file": "villager_dark.webp",
+      "size": [
+        22.5,
+        44.0
+      ],
+      "anchor": [
+        11.2,
+        44.0
+      ],
+      "category": "prop"
+    },
+    "villager_bell_dark": {
+      "file": "villager_bell_dark.webp",
+      "size": [
+        28.0,
+        44.0
+      ],
+      "anchor": [
+        14.0,
+        44.0
+      ],
+      "category": "prop"
+    },
+    "snowman_dark": {
+      "file": "snowman_dark.webp",
+      "size": [
+        28.5,
+        48.0
+      ],
+      "anchor": [
+        14.2,
+        48.0
+      ],
+      "category": "prop"
+    },
+    "gift_dark": {
+      "file": "gift_dark.webp",
+      "size": [
+        21.0,
+        24.0
+      ],
+      "anchor": [
+        10.5,
+        24.0
+      ],
+      "category": "prop"
+    },
+    "stocking_dark": {
+      "file": "stocking_dark.webp",
+      "size": [
+        17.0,
+        26.0
+      ],
+      "anchor": [
+        8.5,
+        26.0
+      ],
+      "category": "prop"
+    },
+    "smoke_dark": {
+      "file": "smoke_dark.webp",
+      "size": [
+        25.0,
+        26.0
+      ],
+      "anchor": [
+        12.5,
+        26.0
+      ],
+      "category": "prop"
+    },
+    "shadow": {
+      "file": "shadow.webp",
+      "size": [
+        120,
+        16
+      ],
+      "anchor": [
+        60,
+        8
+      ],
+      "category": "effect"
+    }
+  }
+}

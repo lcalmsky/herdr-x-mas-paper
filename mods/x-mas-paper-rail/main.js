@@ -12,11 +12,18 @@ import { demoRail } from "./demo.js";
 import { THREAD_LABEL, THREAD_SESSIONS, SPACE_KEY, REPO_PREFIX } from "./site.js";
 
 const TOKENS = {
-  light: { text: "#3A3530", muted: "#3A353099", line: "#F1E6D2", hover: "#F1E6D2", selected: "#F1E6D2", card: "#FFFDF8", block: "#FBF8F2", focus: "#F1E6D2", bar: "#C8423B" },
-  dark: { text: "#DCE3EE", muted: "#DCE3EE99", line: "#25324F", hover: "#26334F", selected: "#25324F", card: "#18203A", block: "#1E2A44", focus: "#25324F", bar: "#F2C46D" },
+  light: { text: "#3A3530", muted: "#3A353099", line: "#F1E6D2", hover: "#F1E6D2", selected: "#F1E6D2", card: "#FFFDF8", block: "#FBF8F2", focus: "#F1E6D2", bar: "#C8423B", second: "#3F6B4F", accent: "#D9C3A0" },
+  dark: { text: "#DCE3EE", muted: "#DCE3EE99", line: "#25324F", hover: "#26334F", selected: "#25324F", card: "#18203A", block: "#1E2A44", focus: "#25324F", bar: "#F2C46D", second: "#FFB24A", accent: "#DCE3EE" },
 };
-const STATE = { blocked: "#E0603F", needs: "#E0603F", approval: "#D9805F", approve: "#D9805F", working: "#E5B54F", done: "#79A877", idle: "#A39A90" };
-const ISLANDS = ["#D9805F", "#7E9FC2", "#9DB89A", "#E5B54F", "#8E6C8A", "#5E8C8A"];
+// The five states in the concept palette: my turn is the primary colour, working the secondary,
+// an unread result the accent, asleep the muted one.
+const STATE_ROLE = { blocked: "turn", needs: "turn", approval: "turn", approve: "turn", working: "working", done: "unread", idle: "sleep" };
+export function stateColors(tone = "light") {
+  const t = TOKENS[tone] ?? TOKENS.light;
+  return { turn: t.bar, working: t.second, unread: t.accent, sleep: t.muted };
+}
+// Six accents for the space tiles, taken from the concept palette's light and dark sets.
+const ISLANDS = ["#C8423B", "#3F6B4F", "#D9C3A0", "#3A3530", "#F2C46D", "#FFB24A"];
 const FOLDER_ICON = "mods/workspace-chrome/folder.svg";
 
 // Each space's accent colour, by its order in the list.
@@ -321,13 +328,13 @@ export default class XmasPaperRail extends View {
     const now = Date.now();
     const tone = appearance();
     const t = TOKENS[tone];
+    const state = stateColors(tone);
     const accent = theme()?.accent ?? t.bar;
     const chrome = theme()?.chrome ?? t.card;
     const demo = this.demo ? demoRail(now) : null;
     const list = demo ? demo.list : agents();
     const rows = demo ? demo.rows
       : this.spaceRows().map((row) => ({ ...row, repo: row.repo ?? null, idle: this.idleShells(row.mine, now) }));
-    // TODO(scene): the scene mod publishes no places yet; the rail draws without seats.
     const places = demo ? demo.places : shared("x-mas-paper-scene")?.places ?? {};
     const groups = railTree(rows, list, places);
     const wide = this.width >= WIDE_W;
@@ -392,10 +399,10 @@ export default class XmasPaperRail extends View {
         .child(div().relative().flex_none().size(22)
           .child(div().size(22).rounded(7).overflow_hidden()
             .child(image(`mods/x-mas-paper-rail/faces/${faceIndex(a.address)}.svg`).size_full()))
-          .child(div().absolute().right(-2).bottom(-2).size(8).rounded(4).bg(STATE[status] ?? STATE.idle)
+          .child(div().absolute().right(-2).bottom(-2).size(8).rounded(4).bg(state[STATE_ROLE[status]] ?? state.sleep)
             .border(1.5).border_color(focused ? t.focus : entry.active ? t.block : chrome)))
         .child(div().flex_1().min_w(0).truncate().text_size(12).font_family("Nunito").font_weight(focused ? 700 : 600)
-          .text_color(needs ? STATE.needs : t.text).child(topic))
+          .text_color(needs ? state.turn : t.text).child(topic))
         .child(div().flex_none().text_size(10).font_family("Geist Mono").text_color(t.muted).child(ago));
     };
     const spaceBlock = (entry) => v_flex().flex_none().ml(20).mr(6).my(1)
