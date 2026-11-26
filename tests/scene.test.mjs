@@ -7,6 +7,7 @@ import { readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
   DISPLAY_STATES, HOUSES, PROPS, SLEEP_MS, displayState, stateOf, placeSessions, clipText, buildSessions,
+  layoutBubbles,
 } from "../mods/x-mas-paper-scene/model.js";
 import { ASSETS } from "../mods/x-mas-paper-scene/manifest.js";
 import { demoSessions, demoRead } from "../mods/x-mas-paper-scene/demo.js";
@@ -60,6 +61,48 @@ test("seats fill the front hill, then a smaller back row, then +N at both ends",
   // The nearest right-hand seat, and its mirror, come first.
   assert.deepEqual(placeSessions([{ id: "a" }, { id: "b" }], W).units.map((u) => u.x), [730, 470]);
   assert.deepEqual(placeSessions([{ id: "a" }], W).units.map((u) => u.number), [1]);
+});
+
+// The scene's bubbles at scale 1, as scene.js passes them.
+const ASK_OPTS = { width: 1200, size: 11, pad: 6, maxW: 180, bh: 20, gap: 4, margin: 4, clear: 2, minW: 48 };
+const CUT_TEXT = "A long question that will need cutting somewhere";
+const askAt = (x, i, extra = {}) => ({ id: `a${i}`, text: CUT_TEXT, x, top: 78, claim: true, ...extra });
+const covers = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+const overlapsAmong = (boxes) => boxes.some((a, i) => boxes.slice(i + 1).some((b) => covers(a, b)));
+
+test("neighbouring waiting bubbles rise a level instead of covering each other", () => {
+  const boxes = layoutBubbles([
+    { id: "cocoa", text: "Publish the cocoa guide to the site?", x: 360, top: 78, claim: true },
+    { id: "gift", text: "Sync the wishlist to the new sheet?", x: 470, top: 78, claim: true },
+  ], ASK_OPTS);
+  assert.equal(boxes.length, 2);
+  assert.equal(boxes.find((b) => b.id === "gift").top, 78 - 20 - 4, "the right bubble rises one level");
+  assert.equal(overlapsAmong(boxes), false, "the two bubbles do not cover each other");
+  for (const box of boxes) assert.ok(box.left >= 0 && box.right <= ASK_OPTS.width, `${box.id} stays in the scene`);
+});
+
+test("three bubbles in a row use both levels", () => {
+  const boxes = layoutBubbles([140, 250, 360].map(askAt), ASK_OPTS);
+  assert.deepEqual(boxes.map((b) => b.top), [78, 54, 78], "the middle one takes the upper level");
+  assert.equal(overlapsAmong(boxes), false);
+});
+
+test("with no room left a bubble is cut, then left out", () => {
+  const asks = [60, 70, 80].map(askAt);
+  const cut = layoutBubbles(asks, { ...ASK_OPTS, width: 300 });
+  assert.equal(cut.length, 3, "the third is cut, not dropped");
+  assert.ok(cut[2].w < cut[0].w, "the third is narrower than its text wanted");
+  assert.ok(cut[2].text.endsWith("…"), "the third's line is cut");
+  assert.equal(overlapsAmong(cut), false);
+  const dropped = layoutBubbles(asks, { ...ASK_OPTS, width: 210 });
+  assert.deepEqual(dropped.map((b) => b.id), ["a0", "a1"], "no room for a 48 px bubble, so it is left out");
+});
+
+test("a raised bubble stays below the scene's top and is slid aside", () => {
+  const boxes = layoutBubbles([100, 140].map((x, i) => askAt(x, i, { top: 16 })), ASK_OPTS);
+  assert.equal(boxes.length, 2);
+  for (const box of boxes) assert.ok(box.top >= ASK_OPTS.clear, `${box.id} keeps y ≥ 2`);
+  assert.equal(overlapsAmong(boxes), false, "the second slid past the first");
 });
 
 test("a one-line sign is cut at a Korean word, never inside one", () => {

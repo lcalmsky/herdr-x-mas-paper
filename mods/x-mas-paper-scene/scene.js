@@ -6,14 +6,14 @@ import { ASSETS } from "./manifest.js";
 import {
   ART_FILE, ART_W, TREE_H, TREE_Y, TREE_WALK_GAP, HOUSE_H, HOUSE_GIFT_X, HOUSE_VILLAGER_X, HOUSE_BELL_X,
   CHIMNEY_X, CHIMNEY_Y, SMOKE_H, SMOKE_RISE, VILLAGER_H, GIFT_H, STOCKING_H, SNOWMAN_H, SNOWMAN_Y, SNOWMAN_X,
-  NUMBER_SIZE, NUMBER_AT, NAME_SIZE, LABEL_MIN_W, NAME_TOP, ASK_SIZE, ASK_H, ASK_PAD, ASK_RADIUS, ASK_MAX_W, ASK_GAP,
-  OVERFLOW_Y, OVERFLOW_W, OVERFLOW_H, FADE_MS, SMOKE_MS, WALK_MS, ZZZ_MS, BELL_MS,
-  houseOf, propOf, clipText, textWidth,
+  NUMBER_SIZE, NUMBER_H, NUMBER_RADIUS, NUMBER_PAD, NUMBER_AT, NAME_SIZE, LABEL_MIN_W, NAME_TOP,
+  ASK_SIZE, ASK_H, ASK_PAD, ASK_RADIUS, ASK_MAX_W, ASK_GAP, ASK_MIN_W, ASK_LIFT, ASK_MARGIN, ASK_CLEAR,
+  OVERFLOW_Y, OVERFLOW_W, OVERFLOW_H, ZZZ_SIZE, LAND_BAND, LAND_COLORS, FADE_MS, SMOKE_MS, WALK_MS, ZZZ_MS, BELL_MS,
+  houseOf, propOf, clipText, layoutBubbles,
 } from "./model.js";
 
 const ART = "mods/x-mas-paper-scene/art/";
 const r2 = (n) => Math.round(n * 100) / 100;
-const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const sidOf = (unit) => String(unit.id).replace(/[^\w-]/g, "_");
 
 function box(name, h) {
@@ -40,15 +40,17 @@ function unitBase(unit, o) {
   const overlays = ASSETS[houseName].overlays ?? {};
   const lit = unit.display === "working" || unit.display === "unread" || unit.display === "other";
   const open = unit.display === "turn";
-  const numberTop = r2(base - HOUSE_H * s * NUMBER_AT - (NUMBER_SIZE * s) / 2 - top);
+  const numberTop = r2(base - HOUSE_H * s * NUMBER_AT - (NUMBER_H * s) / 2 - top);
   const group = div().id(`paper-house-${sidOf(unit)}`).absolute().left(left).top(top).w(house.w).h(house.h)
     .cursor_pointer().on_click(() => o.visit?.(unit))
     .child(image(house.file).absolute().left(0).top(0).w(house.w).h(house.h));
   if (overlays.lit) group.child(fade(image(ART + overlays.lit).absolute().left(0).top(0).w(house.w).h(house.h), lit));
   if (overlays.open) group.child(fade(image(ART + overlays.open).absolute().left(0).top(0).w(house.w).h(house.h), open));
-  group.child(div().absolute().left(0).top(numberTop).w(house.w).h(r2(12 * s))
-    .flex().items_center().justify_center().text_size(r2(NUMBER_SIZE * s)).font_family("Nunito").font_bold()
-    .text_color(o.accent).child(String(unit.number)));
+  group.child(div().absolute().left(0).top(numberTop).w(house.w).h(r2(NUMBER_H * s))
+    .flex().items_center().justify_center()
+    .child(div().rounded(r2(NUMBER_RADIUS * s)).bg(o.numberPlate).px(r2(NUMBER_PAD * s)).py(r2(1 * s))
+      .text_size(r2(NUMBER_SIZE * s)).font_family("Nunito").font_bold()
+      .text_color(o.accent).child(String(unit.number))));
   return { node: group, house, top, base };
 }
 
@@ -95,13 +97,13 @@ function unitSymbols(unit, o, house) {
 
   out.push(div().id(`paper-zzz-${sidOf(unit)}`).absolute().left(r2(x - 40 * s)).top(r2(house.top - 16 * s)).w(r2(80 * s))
     .opacity(sleeping ? 1 : 0).transition("opacity", { duration: FADE_MS })
-    .child(div().w_full().text_size(r2(10 * s)).font_family("Nunito").font_bold().text_color(o.muted).child("z z z")
+    .child(div().w_full().text_size(r2(ZZZ_SIZE * s)).font_family("Nunito").font_bold().text_color(o.text).child("z z z")
       .loop("opacity", { from: 1, to: 0.15, period: ZZZ_MS, easing: "ease-in-out" })));
   return out;
 }
 
 // The name under the house and, for a session waiting on the person, its question above.
-function signNodes(unit, o, house) {
+function signNodes(unit, o, house, bubble) {
   const s = unit.scale * o.k;
   const x = unit.x * o.k, base = unit.y * o.k;
   const out = [];
@@ -110,19 +112,13 @@ function signNodes(unit, o, house) {
     .w(r2(labelW)).text_size(r2(NAME_SIZE * s)).font_family("Nunito").font_weight(600).text_color(o.text)
     .whitespace_nowrap().flex().items_center().justify_center()
     .child(clipText(unit.name, labelW - 4 * s, NAME_SIZE * s)));
-  if (unit.question) {
-    const size = ASK_SIZE * o.k;
-    const maxW = Math.min(ASK_MAX_W * o.k, o.width - 12 * o.k);
-    const text = clipText(unit.question, maxW - 2 * ASK_PAD * o.k, size);
-    const bw = Math.min(maxW, r2(textWidth(text, size) + 2 * ASK_PAD * o.k));
-    const bh = ASK_H * o.k;
-    const left = clamp(r2(x - bw / 2), 4 * o.k, o.width - bw - 4 * o.k);
-    const top = clamp(r2(house.top - ASK_GAP * o.k - bh), 2 * o.k, o.height - bh - 2 * o.k);
-    out.push(div().id(`paper-ask-${sidOf(unit)}`).absolute().left(left).top(top).w(bw).h(r2(bh))
+  if (bubble) {
+    out.push(div().id(`paper-ask-${sidOf(unit)}`).absolute().left(r2(bubble.left)).top(r2(bubble.top))
+      .w(r2(bubble.w)).h(r2(bubble.h))
       .opacity(unit.display === "turn" ? 1 : 0).transition("opacity", { duration: FADE_MS })
       .flex().items_center().justify_center().rounded(r2(ASK_RADIUS * o.k)).bg(o.surface)
-      .border(Math.max(1, r2(o.k))).border_color(o.accent).text_size(r2(size)).font_family("Nunito")
-      .font_weight(600).text_color(o.text).whitespace_nowrap().overflow_hidden().child(text));
+      .border(Math.max(1, r2(o.k))).border_color(o.accent).text_size(r2(ASK_SIZE * o.k)).font_family("Nunito")
+      .font_weight(600).text_color(o.text).whitespace_nowrap().overflow_hidden().child(bubble.text));
   }
   return out;
 }
@@ -130,17 +126,20 @@ function signNodes(unit, o, house) {
 /**
  * Every node of the scene, back to front: background, back-row houses, shadows, the tree and the
  * front-row houses, the props each state adds, then the names and bubbles.
- * o: { width, height, tone, units, overflow, colors: { text, muted, accent, surface }, visit }
+ * o: { width, height, tone, units, overflow, colors: { text, muted, accent, surface, ground }, visit }
  */
 export function sceneLayers(o) {
   const k = Math.max(0.01, o.height / 240);
   const W = o.width;
   const shared = { k, width: W, height: o.height, logicalW: W / k, tone: o.tone, visit: o.visit,
-    text: o.colors.text, muted: o.colors.muted, accent: o.colors.accent, surface: o.colors.surface, treeX: W / 2 };
+    text: o.colors.text, muted: o.colors.muted, accent: o.colors.accent, surface: o.colors.surface,
+    numberPlate: o.colors.ground, treeX: W / 2 };
   const nodes = [];
   const tileW = ART_W * k;
   const bg = ART + (o.tone === "dark" ? ART_FILE.bg_dark : ART_FILE.bg_light);
   for (let i = 0; i * tileW < W; i++) nodes.push(image(bg).absolute().left(r2(i * tileW)).top(0).w(r2(tileW + 1)).h(r2(o.height)));
+  nodes.push(div().absolute().left(0).top(r2(o.height - LAND_BAND * k)).w(W).h(r2(LAND_BAND * k))
+    .bg(o.tone === "dark" ? LAND_COLORS.dark : LAND_COLORS.light));
 
   const back = o.units.filter((u) => u.row === "back");
   const front = o.units.filter((u) => u.row === "front");
@@ -179,6 +178,16 @@ export function sceneLayers(o) {
   const snowman = box(propOf("snowman", o.tone), SNOWMAN_H * k);
   nodes.push(image(snowman.file).absolute().left(r2(W - SNOWMAN_X * k - snowman.ax)).top(r2(SNOWMAN_Y * k - snowman.ay)).w(snowman.w).h(snowman.h));
 
+  const bubbleOpts = {
+    width: W, size: ASK_SIZE * k, pad: ASK_PAD * k, maxW: Math.min(ASK_MAX_W * k, W - 12 * k),
+    minW: ASK_MIN_W * k, bh: ASK_H * k, gap: ASK_LIFT * k, margin: ASK_MARGIN * k, clear: ASK_CLEAR * k,
+  };
+  const asks = o.units.filter((unit) => unit.question && bases.has(unit)).map((unit) => ({
+    id: unit.id, text: unit.question, x: unit.x * k, top: bases.get(unit).top - ASK_GAP * k - ASK_H * k,
+    claim: unit.display === "turn",
+  }));
+  const bubbles = new Map(layoutBubbles(asks, bubbleOpts).map((bubble) => [bubble.id, bubble]));
+
   for (const mark of o.overflow ?? []) {
     nodes.push(div().id(`paper-overflow-${mark.side}`).absolute()
       .left(r2(mark.x * k - (OVERFLOW_W * k) / 2)).top(r2(OVERFLOW_Y * k - OVERFLOW_H * k))
@@ -188,7 +197,7 @@ export function sceneLayers(o) {
 
   for (const unit of o.units) {
     const built = bases.get(unit);
-    if (built) nodes.push(...signNodes(unit, shared, built));
+    if (built) nodes.push(...signNodes(unit, shared, built, bubbles.get(unit.id)));
   }
   return nodes;
 }

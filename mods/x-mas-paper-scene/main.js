@@ -155,6 +155,7 @@ export default class PaperScene extends View {
       muted: th.muted ?? t.muted,
       accent: th.accent ?? t.accent,
       surface: th.surface ?? t.surface,
+      ground: t.ground,
     };
     const height = this.height > 0 ? this.height : SCENE_H;
     const k = height / SCENE_H;
