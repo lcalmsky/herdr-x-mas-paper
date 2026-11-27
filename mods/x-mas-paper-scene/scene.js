@@ -12,7 +12,8 @@ import {
   BUBBLE_BOX, BUBBLE_BG, BUBBLE_INK,
   ZZZ_TEXT, ZZZ_SIZE, ZZZ_WEIGHT, ZZZ_BOX, ZZZ_COLORS,
   PLUS_SIZE, PLUS_WEIGHT, PLUS_PAD_Y, PLUS_PAD_X, PLUS_RADIUS, PLUS_TOP, PLUS_RIGHT, PLUS_COLORS,
-  EDGE, FADE_MS, SMOKE_MS, WALK_MS, STEP_MS,
+  KEYS_SIZE, KEYS_WEIGHT, KEYS_PAD_Y, KEYS_PAD_X, KEYS_RADIUS, KEYS_GAP,
+  EDGE, FADE_MS, SMOKE_MS, WALK_MS, STEP_MS, KEYS_LINE, LEGEND_LINE, ACCENT_COLORS,
 } from "./model.js";
 
 const ART = "mods/x-mas-paper-scene/art/";
@@ -46,6 +47,12 @@ function unionOf(boxes) {
 // A sprite inside its group: the anchor relative to the group's top-left.
 const imageIn = (box, group) => image(ART + box.file).absolute()
   .left(r2(-box.ax - group.left)).top(r2(-box.ay - group.top)).w(r2(box.w)).h(r2(box.h));
+
+// The selected house's mark: the studio's selection picture is not drawn yet, so its name chip
+// turns the accent colour with white ink. The house and frame are where that picture will sit.
+export function selectionMark(house, frame, mode, accent) {
+  return { bg: typeof accent === "string" && accent ? accent : ACCENT_COLORS[mode], ink: "#FFFFFF" };
+}
 
 export function sceneLayers(o) {
   const width = o.width, height = o.height;
@@ -83,7 +90,9 @@ export function sceneLayers(o) {
     nodes.push(div().id(`paper-visit-${sidOf(seat.id)}`).absolute()
       .left(r2(sx(house.body_x[0]))).top(r2(sy(house.top_y)))
       .w(r2(s(house.body_x[1] - house.body_x[0]))).h(r2(s(house.floor_y - house.top_y)))
-      .cursor_pointer().on_click(() => o.visit?.(seat)));
+      .cursor_pointer()
+      .on_mouse_down("left", (_event, cx) => cx?.stop_propagation?.())
+      .on_click((_event, cx) => o.visit?.(seat, cx)));
   }
 
   // The two walkers share the tree's lane. Step 0 is the picture's first pose; steps 1 and 2 turn
@@ -170,12 +179,13 @@ export function sceneLayers(o) {
     const chipLeft = clamp(sx(house.name_label.x) - chipW / 2, EDGE, width - chipW - EDGE);
     const left = chipLeft - (w - chipW) / 2;
     const top = clamp(sy(house.name_label.y), EDGE, height - chipH);
+    const mark = house.id === o.selected ? selectionMark(house, frame, mode, o.accent) : null;
     nodes.push(div().id(`paper-name-${sidOf(seat.id)}`).absolute().left(r2(left)).top(r2(top)).w(r2(w))
       .flex().justify_center()
-      .child(div().id(`paper-name-chip-${sidOf(seat.id)}`).bg(label.bg)
+      .child(div().id(`paper-name-chip-${sidOf(seat.id)}`).bg(mark ? mark.bg : label.bg)
         .px(r2(s(LABEL_PAD_X))).py(r2(s(LABEL_PAD_Y))).rounded(r2(s(LABEL_RADIUS)))
         .line_height(`${r2(line)}px`).text_size(r2(line)).font_family(LABEL_FONT)
-        .font_weight(LABEL_WEIGHT).text_color(label.ink)
+        .font_weight(LABEL_WEIGHT).text_color(mark ? mark.ink : label.ink)
         .whitespace_nowrap().child(text)));
   }
 
@@ -210,12 +220,41 @@ export function sceneLayers(o) {
         .font_family(TEXT_FONT).font_weight(ZZZ_WEIGHT).italic().text_color(ZZZ_COLORS[mode]).child(ZZZ_TEXT)));
   }
 
+  // The +N chip counts the sessions off the strip; the search chip sits just left of it.
+  const plusText = `+${o.plus ?? 0}`;
+  const plusW = (o.plus ?? 0) > 0 ? textWidth(plusText, s(PLUS_SIZE)) + s(2 * PLUS_PAD_X) + 6 : 0;
   if ((o.plus ?? 0) > 0) {
     nodes.push(div().id("paper-plus").absolute().top(PLUS_TOP).right(PLUS_RIGHT)
       .child(div().id("paper-plus-chip").bg(plusColors.bg)
         .px(r2(s(PLUS_PAD_X))).py(r2(s(PLUS_PAD_Y))).rounded(r2(s(PLUS_RADIUS)))
         .line_height(`${r2(s(PLUS_SIZE))}px`).text_size(r2(s(PLUS_SIZE))).font_family(TEXT_FONT)
-        .font_weight(PLUS_WEIGHT).text_color(plusColors.ink).child(`+${o.plus}`)));
+        .font_weight(PLUS_WEIGHT).text_color(plusColors.ink).child(plusText)));
+  }
+  if (o.keysHeld && o.query) {
+    nodes.push(div().id("paper-query").absolute().top(PLUS_TOP).right(r2(PLUS_RIGHT + plusW))
+      .child(div().id("paper-query-chip").bg(plusColors.bg)
+        .px(r2(s(PLUS_PAD_X))).py(r2(s(PLUS_PAD_Y))).rounded(r2(s(PLUS_RADIUS)))
+        .line_height(`${r2(s(PLUS_SIZE))}px`).text_size(r2(s(PLUS_SIZE))).font_family(TEXT_FONT)
+        .font_weight(PLUS_WEIGHT).text_color(plusColors.ink).whitespace_nowrap().child(String(o.query))));
+  }
+
+  // While the scene holds the keyboard: one line of keys at the top centre, the whole legend in its
+  // place after `?`, and a 2 px accent ring around the block, drawn last so it paints over.
+  if (o.keysHeld) {
+    const line = s(KEYS_SIZE);
+    const text = o.notice ?? (o.showKeys ? LEGEND_LINE : KEYS_LINE);
+    const query = o.query ? String(o.query) : "";
+    const chipsW = plusW + (query ? textWidth(query, s(PLUS_SIZE)) + s(2 * PLUS_PAD_X) : 0);
+    // Kept clear of the top-right chips, so a line too long for that width is cut, never wrapped.
+    const boxW = Math.max(1, width - 2 * ((chipsW ? PLUS_RIGHT + chipsW : 0) + s(KEYS_GAP)));
+    nodes.push(div().id("paper-keys-line").absolute().left(r2((width - boxW) / 2)).top(r2(s(PLUS_TOP))).w(r2(boxW))
+      .flex().justify_center().overflow_hidden()
+      .child(div().id("paper-keys-line-text").bg(plusColors.bg)
+        .px(r2(s(KEYS_PAD_X))).py(r2(s(KEYS_PAD_Y))).rounded(r2(s(KEYS_RADIUS)))
+        .line_height(`${r2(line)}px`).text_size(r2(line)).font_family(TEXT_FONT)
+        .font_weight(KEYS_WEIGHT).text_color(plusColors.ink).whitespace_nowrap().child(text)));
+    nodes.push(div().id("paper-keys-ring").absolute().left(0).top(0).right(0).bottom(0)
+      .rounded(10).border(2).border_color(o.accent || ACCENT_COLORS[mode]));
   }
 
   return nodes;

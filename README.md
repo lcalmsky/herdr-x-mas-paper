@@ -36,6 +36,41 @@ tools/install.sh
 
 Then pick **x-mas-paper** in Herdr's layout picker. `tools/install.sh` copies the mods, the two layouts (`x-mas-paper` and its demo), the layout picture when it is there, and the two themes into `${HERDR_APP_HOME:-$HOME/.config/herdr-app}`. The `herdr-shared` submodule carries the shared `cca`, `scan.sh` and `hv` runtime files the mods use.
 
+## Keys
+
+Press `ctrl+opt+p` to give the scene band the keyboard (or click an empty spot on it); press it again, or `Esc` once nothing is left to step back through, to give it back to the pane it came from:
+
+| Key | What it does |
+| --- | --- |
+| ← → | Select the previous / next house on the strip |
+| ⌥← ⌥→ | Select the first / last house |
+| ↩ | Go to the selected session's terminal |
+| Space / ⇧Space | Go to the next waiting / unread session, oldest first, cycling |
+| ⌫ | Mark the selected unread result as read (its gift box goes); ⌘Z undoes it for 6 s |
+| typing | Search the names; Hangul typed on a 2-set keyboard composes into syllables, and the query shows in a chip left of `+N` |
+| ⌫ while searching | Delete a jamo, ⌘⌫ the whole query, ⌥⌫ the last word |
+| ? | Show the whole key legend in place of the line |
+| Esc | Clear the search, then the selection, then give the keyboard back |
+
+The selected house is marked by its name chip turning the accent colour until the studio's selection picture arrives.
+
+The scene answers `x-mas-paper-scene.toggle`, `.back` and `.forward`, plus a `press` command that takes one key as data (`press:{"key":"right","shift":false,"alt":false,"cmd":false,"ctrl":false}`) so a preview window that cannot receive keystrokes can still be posed. Bind them in `keys.json` — the sections apply only while those layouts show:
+
+```json
+"layout:x-mas-paper": {
+  "ctrl-alt-p": "x-mas-paper-scene.toggle",
+  "cmd-[": "x-mas-paper-scene.back",
+  "cmd-]": "x-mas-paper-scene.forward"
+},
+"layout:x-mas-paper-demo": {
+  "ctrl-alt-p": "x-mas-paper-scene.toggle",
+  "cmd-[": "x-mas-paper-scene.back",
+  "cmd-]": "x-mas-paper-scene.forward"
+}
+```
+
+`tools/keys-section.txt` carries the same section; when `keys.json` has no `layout:x-mas-paper` section, `tools/install.sh` prints it and says where it goes. The installer never edits `keys.json` itself.
+
 ## Pictures
 
 ```sh

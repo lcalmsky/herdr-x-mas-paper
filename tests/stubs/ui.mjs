@@ -6,7 +6,7 @@
 // bg() argument as [id, value], globalThis.uiSizes as a Map keeps each id's w()/h() as { w, h }.
 // globalThis.uiNodes as a Map records a tree:
 // each element with an id maps to { id, src, texts (the strings given to child), bg (the last bg value),
-// ink (the last text_color value), calls: [[name, ...args]] for opacity/transition/loop/left/top,
+// ink (the last text_color value), calls: [[name, ...args]] for opacity/transition/loop/left/top/right/bottom/border/border_color,
 // kids: child nodes given to child() or children() }; an image's node carries its path as src. globalThis.uiHandlers as a Map keeps each
 // id's gesture handlers under their names (on_pinch, on_scroll_wheel, on_mouse_move, on_key_down, on_click,
 // on_hover, on_mouse_down:<button>, on_mouse_up:<button>), and globalThis.uiCursors as a Map keeps each id's
@@ -14,7 +14,8 @@
 // property name read on an element, so a render can be checked against the methods gpui-kit really has.
 let inRow = false;
 const nodes = new WeakMap();
-const MOTION = new Set(["opacity", "transition", "loop", "left", "top"]);
+const MOTION = new Set(["opacity", "transition", "loop", "left", "top", "right", "bottom"]);
+const STYLE = new Set(["border", "border_color"]);
 class UiNode { id = null; src = null; texts = []; bg = null; calls = []; kids = []; }
 const keepHandler = (ctx, name, handler) => {
   if (!(globalThis.uiHandlers instanceof Map) || ctx.id === undefined) return;
@@ -36,6 +37,7 @@ const element = (ctx = {}, carried = null) => {
         return el;
       };
       if (node && typeof key === "string" && MOTION.has(key)) return (...args) => { node.calls.push([key, ...args]); return el; };
+      if (node && typeof key === "string" && STYLE.has(key)) return (value) => { node.calls.push([key, value]); return el; };
       if (node && key === "children") return (list) => {
         for (const c of list ?? []) { const k = nodes.get(c); if (k) node.kids.push(k); }
         return el;

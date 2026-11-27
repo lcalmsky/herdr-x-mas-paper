@@ -19,6 +19,7 @@ export const BUBBLE_BG = "#FFFCF6", BUBBLE_INK = "#3A3530";
 export const ZZZ_TEXT = "zzz", ZZZ_SIZE = 12, ZZZ_WEIGHT = 600, ZZZ_BOX = 80;
 export const PLUS_SIZE = 13, PLUS_WEIGHT = 700, PLUS_PAD_Y = 5, PLUS_PAD_X = 8, PLUS_RADIUS = 5;
 export const PLUS_TOP = 10, PLUS_RIGHT = 12;
+export const KEYS_SIZE = 12, KEYS_WEIGHT = 600, KEYS_PAD_Y = 5, KEYS_PAD_X = 10, KEYS_RADIUS = 5, KEYS_GAP = 12;
 export const EDGE = 4;
 export const LABEL_COLORS = {
   light: { ink: "#3A3530", bg: "#FFFCF6B8" },
@@ -29,6 +30,9 @@ export const PLUS_COLORS = {
   light: { ink: "#3A3530", bg: "#FFFCF6CC" },
   dark: { ink: "#DCE3EE", bg: "#16203CCC" },
 };
+export const ACCENT_COLORS = { light: "#C8423B", dark: "#F2C46D" };
+export const KEYS_LINE = "←→ Select · ↩ Go to · Space Waiting · ⇧Space Unread · ⌫ Read · ? Keys · Esc";
+export const LEGEND_LINE = "←→ Select · ⌥←→ First/Last · ↩ Go to · Space Waiting · ⇧Space Unread · ⌫ Read · ⌘Z Undo · ? Hide · Esc";
 export const FADE_MS = 400, SMOKE_MS = 1200, WALK_MS = 9000, STEP_MS = 500;
 export const WALK_FIRST_MS = 600, DEMO_STAND_MS = 2000;
 
@@ -155,7 +159,7 @@ export function buildSessions({ sessions, agents: agentList = [], terminals: ter
     if (terminal) claimed.add(terminal.address);
     const spoke = terminal ? agentList.find((a) => a.address === terminal.address) : null;
     const at = lastActivityOf(raw);
-    let state = stateOf(raw, spoke ? spoke.status === "idle" : seen.has(ackOf(raw, at)));
+    let state = stateOf(raw, seen.has(ackOf(raw, at)) || (spoke ? spoke.status === "idle" : false));
     if (state === null && spoke?.status === "blocked") state = "needs";
     const place = placeOf(raw.cwd);
     const pane = terminal ? paneList.find((p) => p.terminal === terminal.address) : null;

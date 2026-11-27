@@ -1,0 +1,10 @@
+"layout:x-mas-paper": {
+  "ctrl-alt-p": "x-mas-paper-scene.toggle",
+  "cmd-[": "x-mas-paper-scene.back",
+  "cmd-]": "x-mas-paper-scene.forward"
+},
+"layout:x-mas-paper-demo": {
+  "ctrl-alt-p": "x-mas-paper-scene.toggle",
+  "cmd-[": "x-mas-paper-scene.back",
+  "cmd-]": "x-mas-paper-scene.forward"
+}

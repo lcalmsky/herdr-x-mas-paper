@@ -4,7 +4,7 @@
 
 Herdr 레이아웃 `x-mas-paper`: 맨 위에 종이 마을 장면 띠(스튜디오가 그린 장면 그림 한 장 위에 세션마다 집 하나), 그 아래에 탭 줄과 터미널, 오른쪽에 레일.
 
-- `mods/x-mas-paper-scene` — 위쪽 장면 띠. 스튜디오가 그린 그림 한 장(`art/scene_<mode>.png`), 집별 상태 겹침 조각(`art/state_<state>_<mode>_h<id>.png`), 작은 그림들, 그리고 자리·겹침 사각형·작은 그림 기준점을 담은 `slots.js` 로 그린다. 재료가 바뀌면 `uv run --with pillow python3 -I tools/build-scene-art.py <재료폴더>` 로 `art/` 와 `slots.js` 를 다시 만든다. `scan.sh` 를 3 초마다 돌린다.
+- `mods/x-mas-paper-scene` — 위쪽 장면 띠. 스튜디오가 그린 그림 한 장(`art/scene_<mode>.png`), 집별 상태 겹침 조각(`art/state_<state>_<mode>_h<id>.png`), 작은 그림들, 그리고 자리·겹침 사각형·작은 그림 기준점을 담은 `slots.js` 로 그린다. 재료가 바뀌면 `uv run --with pillow python3 -I tools/build-scene-art.py <재료폴더>` 로 `art/` 와 `slots.js` 를 다시 만든다. `scan.sh` 를 3 초마다 돌린다. `ctrl+opt+p` 로 장면이 키보드를 잡으면 ←→·⌥←→ 선택, ↩ 이동, Space/⇧Space 대기·안 읽은 세션, ⌫ 읽음, 타이핑 검색, ? 범례, Esc 단계, ⌘[/⌘] 방문 이력을 받는다. keys.json 의 `layout:x-mas-paper` 섹션(`tools/keys-section.txt`)이 있어야 첫 세 명령이 닿는다.
 - `mods/x-mas-paper-rail` — 오른쪽 레일. 저장소별로 스페이스를 묶고, 스페이스마다 티켓 키와 에이전트 얼굴·주제·경과 시간을 그린다.
 - `mods/x-mas-paper-accounts` — 사원증 배지. `cca` 로 Claude/Codex 계정과 사용량을 읽어 레일 아래에 세우고, 헤드의 사용량 게이지와 계정 팝업을 그린다.
 - `mods/x-mas-paper-tabs` — 탭 줄. 30 px 행에 들어간다. 이름 없는 탭은 에이전트 세션 이름, 없으면 폴더 이름을 쓴다. Herdr 의 `tabs` mod 를 고친 것이다.
@@ -20,7 +20,7 @@ tools/install.sh
 node --import ./tests/stubs/register.mjs --test tests/
 ```
 
-`tools/install.sh` 는 mod, `layouts/x-mas-paper.json`, `layouts/x-mas-paper.png`(있으면), 테마 둘을 `${HERDR_APP_HOME:-$HOME/.config/herdr-app}` 로 복사한다. `herdr-shared` 의 `cca`·`scan.sh`·`hv` 는 `vendor/herdr-shared` 서브모듈에서 `herdr-shared.list` 대로 사본을 만든다 (`sh vendor/herdr-shared/tools/vendor.sh --list .`).
+`tools/install.sh` 는 mod, `layouts/x-mas-paper.json`, `layouts/x-mas-paper.png`(있으면), 테마 둘을 `${HERDR_APP_HOME:-$HOME/.config/herdr-app}` 로 복사한다. `herdr-shared` 의 `cca`·`scan.sh`·`hv` 는 `vendor/herdr-shared` 서브모듈에서 `herdr-shared.list` 대로 사본을 만든다 (`sh vendor/herdr-shared/tools/vendor.sh --list .`). keys.json 은 사람의 파일이라 고치지 않고, `layout:x-mas-paper` 섹션이 없으면 `tools/keys-section.txt` 를 붙이라고 안내만 한다.
 
 ## 그림 다시 만들기
 

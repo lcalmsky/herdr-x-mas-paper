@@ -31,3 +31,19 @@ cp "$REPO/layouts/x-mas-paper.json" "$REPO/layouts/x-mas-paper-demo.json" "$HOME
 if [ -f "$REPO/layouts/x-mas-paper.png" ]; then cp "$REPO/layouts/x-mas-paper.png" "$HOME_DIR/layouts/"; fi
 cp "$REPO/themes/x-mas-paper-light.json" "$REPO/themes/x-mas-paper-dark.json" "$HOME_DIR/themes/"
 for mod in x-mas-paper-scene x-mas-paper-rail x-mas-paper-accounts x-mas-paper-tabs x-mas-paper-pane x-mas-paper-editor; do herdr-app check "$HOME_DIR/mods/$mod"; done
+# keys.json belongs to the person: this only tells them what the layout's section should be.
+KEYS="$HOME_DIR/keys.json"
+SECTION="$REPO/tools/keys-section.txt"
+if [ -f "$SECTION" ]; then
+  if [ ! -f "$KEYS" ]; then
+    printf "keys.json was not found at %s, so the layout's shortcuts (ctrl-alt-p, cmd-[ ...) do nothing.\n" "$KEYS"
+    printf 'Create it with this content:\n{\n'
+    cat "$SECTION"
+    printf '}\n'
+  elif ! grep -Eq '"layout:x-mas-paper"[[:space:]]*:' "$KEYS"; then
+    printf "%s has no \"layout:x-mas-paper\" section, so the layout's shortcuts (ctrl-alt-p, cmd-[ ...) do nothing.\n" "$KEYS"
+    printf 'Add this section inside its top-level { } (next to "global"), with a comma after the section before it:\n'
+    cat "$SECTION"
+    printf 'tools/install.sh does not edit keys.json itself.\n'
+  fi
+fi
