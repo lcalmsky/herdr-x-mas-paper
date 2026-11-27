@@ -1,6 +1,6 @@
 # X-mas Paper
 
-A paper-cut Christmas village for [Herdr](https://herdr.dev). Every agent session is one house on the snow: its windows glow and its chimney smokes while it works, the door opens and a resident rings a bell when your turn comes, a gift box waits at the door while a finished turn is still unread, the windows go dark and a `zzz` floats over the roof once it has slept for half an hour, and the house stays as painted otherwise. The village runs along the top as a scene band; below it are the tab row and the terminal, and the rail on the right groups spaces by repository with their ticket keys and one row per agent with a face, a topic and an elapsed time. Underneath, staff-ID badges show each Claude and Codex account's five-hour and weekly usage. Light and dark are a theme pair, so the layout follows the system's appearance.
+A paper-cut Christmas village for [Herdr](https://herdr.dev). Every agent session is one house on the snow: its windows glow and three smoke puffs rise from its chimney while it works, each round drawn fresh, the door opens and a resident rings a bell when your turn comes, a gift box waits at the door while a finished turn is still unread, the windows go dark and a `zzz` floats over the roof once it has slept for half an hour, and the house stays as painted otherwise. The village runs along the top as a scene band; below it are the tab row and the terminal, and the rail on the right groups spaces by repository with their ticket keys and one row per agent with a face, a topic and an elapsed time. Underneath, staff-ID badges show each Claude and Codex account's five-hour and weekly usage. Light and dark are a theme pair, so the layout follows the system's appearance.
 
 ![X-mas Paper](preview.png)
 
@@ -16,13 +16,13 @@ The scene band is one painted paper village on a fixed 3112×320 canvas, cropped
 | Sleeping (idle for 30 minutes) | The windows go dark | `zzz` above the roof |
 | Otherwise | The house as painted | — |
 
-The village art is rebuilt from the studio handoff folder:
+The village art is rebuilt from the studio handoff folders, each file read from the last folder that has it:
 
 ```sh
-uv run --with pillow python3 -I tools/build-scene-art.py <materials-folder>
+uv run --with pillow python3 -I tools/build-scene-art.py <base-folder> [<override-folder> ...]
 ```
 
-It clears and refills `mods/x-mas-paper-scene/art/`, copies the two scene pictures and the small sprites unchanged, cuts one overlay slice per house and state, writes `slots.js`, and fails unless every slice recomposes to the handed-over overlay pixel for pixel.
+It clears and refills `mods/x-mas-paper-scene/art/`, copies the scene pictures, the string lights, the three blink groups, the selection brackets and the small sprites unchanged, cuts one overlay slice per house and state, writes `slots.js`, replaces the rail's and the accounts' faces with the handoff's 24 pngs, and fails unless every slice recomposes to the handed-over overlay pixel for pixel and a later folder changes only the tree band.
 
 The rail on the right is a directory tree: a heading per repository, its spaces with their ticket keys, and one row per agent with a face, its status, the topic and how long it has run. The badges under it hang like staff IDs, one per account, with the five-hour and weekly usage. A session that needs an answer also carries its last line as a sign above the house; the tab bar above the terminal says when the village cannot read its sessions.
 
@@ -52,7 +52,7 @@ Press `ctrl+opt+p` to give the scene band the keyboard (or click an empty spot o
 | ? | Show the whole key legend in place of the line |
 | Esc | Clear the search, then the selection, then give the keyboard back |
 
-The selected house is marked by its name chip turning the accent colour until the studio's selection picture arrives.
+The selected house is marked by four red-paper corner brackets that fade in around it.
 
 The scene answers `x-mas-paper-scene.toggle`, `.back` and `.forward`, plus a `press` command that takes one key as data (`press:{"key":"right","shift":false,"alt":false,"cmd":false,"ctrl":false}`) so a preview window that cannot receive keystrokes can still be posed. Bind them in `keys.json` — the sections apply only while those layouts show:
 

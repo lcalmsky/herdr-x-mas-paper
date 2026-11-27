@@ -7,11 +7,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import PaperScene from "../mods/x-mas-paper-scene/main.js";
 import {
-  SCENE_H, LABEL_COLORS, PLUS_COLORS, KEYS_LINE, LEGEND_LINE, ACCENT_COLORS,
+  SCENE_H, LABEL_COLORS, PLUS_COLORS, KEYS_LINE, LEGEND_LINE, ACCENT_COLORS, PUFF_FLIP_MS, PUFF_TICK_MS,
 } from "../mods/x-mas-paper-scene/model.js";
 import {
   stepSeat, waitTargets, cycle, searchSeat, eraseWord, visitHistory, stepHistory, pressSpec, keySeats,
 } from "../mods/x-mas-paper-scene/keys.js";
+import { SLOTS } from "../mods/x-mas-paper-scene/slots.js";
 import { typeJamo } from "../mods/x-mas-paper-scene/hangul.js";
 
 const NOW = Date.now();
@@ -462,9 +463,20 @@ test("while the scene holds the keys it draws the guide line, the ring and the s
     assert.deepEqual(ring.calls.find(([key]) => key === "border"), ["border", 2], "a 2 px ring");
     assert.deepEqual(ring.calls.find(([key]) => key === "border_color"), ["border_color", ACCENT_COLORS.light]);
     assert.deepEqual(globalThis.uiNodes.get("paper-query-chip").texts, ["snow"]);
-    assert.equal(globalThis.uiNodes.get("paper-name-chip-a").bg, ACCENT_COLORS.light, "the selected chip takes the accent");
-    assert.equal(globalThis.uiNodes.get("paper-name-chip-a").ink, "#FFFFFF", "with white ink");
-    assert.equal(globalThis.uiNodes.get("paper-name-chip-b").bg, LABEL_COLORS.light.bg, "the others keep theirs");
+    const selectedHouse = SLOTS.fill_order[0];
+    for (const corner of ["tl", "tr", "bl", "br"]) {
+      assert.equal(globalThis.uiNodes.get(`paper-select-h${selectedHouse}-${corner}`).calls.find(([key]) => key === "opacity")[1], 1,
+        `the selected house's ${corner} bracket shows`);
+    }
+    for (const house of SLOTS.houses.filter((h) => h.id !== selectedHouse)) {
+      for (const corner of ["tl", "tr", "bl", "br"]) {
+        assert.equal(globalThis.uiNodes.get(`paper-select-h${house.id}-${corner}`).calls.find(([key]) => key === "opacity")[1], 0,
+          `house ${house.id}'s ${corner} bracket stays hidden`);
+      }
+    }
+    assert.equal(globalThis.uiNodes.get("paper-name-chip-a").bg, LABEL_COLORS.light.bg, "the selected chip keeps the label colour");
+    assert.equal(globalThis.uiNodes.get("paper-name-chip-a").ink, LABEL_COLORS.light.ink);
+    assert.equal(globalThis.uiNodes.get("paper-name-chip-b").bg, LABEL_COLORS.light.bg, "and so do the others");
     assert.equal(globalThis.uiNodes.get("paper-name-chip-b").ink, LABEL_COLORS.light.ink);
 
     press(view, "escape");
@@ -582,4 +594,90 @@ test("the search and word erase work on names and the query", () => {
   assert.equal(eraseWord("snow api"), "snow ");
   assert.equal(eraseWord("snow"), "");
   assert.equal(typeJamo(typeJamo("", "ㅎ"), "ㅏ"), "하");
+});
+
+test("the puff tick starts rounds only at working houses, then flips them to run", () => {
+  const rows = [{ id: "a", status: "busy" }, { id: "b", status: "waiting", waitingFor: "reply" }];
+  const { view, cx } = sceneOf(rows);
+  view.rand = () => 0.5;
+  view.render(cx);
+  const working = view.plan().seats.find((seat) => seat.display === "working");
+  const other = view.plan().seats.find((seat) => seat.display === "turn");
+  for (const cells of view.puffs.values()) for (const cell of cells) cell.nextAt = 0;
+
+  const notices = [];
+  const after = [];
+  const fakeCx = { notify: () => notices.push(1), timer: { after: (ms, fn) => after.push({ ms, fn }) } };
+  view.stepPuffs(fakeCx);
+  assert.deepEqual(notices, [1], "the start renders once");
+  assert.equal(after.length, 1, "one flip is scheduled");
+  assert.equal(after[0].ms, PUFF_FLIP_MS);
+  const cells = view.puffs.get(working.house.id);
+  assert.equal(cells.length, SLOTS.smoke_puffs.puffs_per_chimney);
+  for (const cell of cells) {
+    assert.equal(cell.phase, "start");
+    assert.equal(cell.n, 1);
+    assert.ok(cell.spec && cell.spec.pic.startsWith("p"), "a fresh picture was rolled");
+    assert.ok(cell.nextAt > Date.now(), "the next round waits this round's own length");
+  }
+  for (const cell of view.puffs.get(other.house.id)) {
+    assert.equal(cell.phase, "idle", "a house that is not working stays idle");
+    assert.equal(cell.n, 0);
+  }
+  after[0].fn({ notify: () => notices.push(1) });
+  for (const cell of cells) assert.equal(cell.phase, "run");
+  assert.deepEqual(notices, [1, 1], "the flip renders again");
+});
+
+test("a house that starts working re-rolls each cell's first-round offset", () => {
+  const { view, cx } = sceneOf([{ id: "a", status: "waiting", waitingFor: "reply" }]);
+  const base = Date.now();
+  const realNow = Date.now;
+  try {
+    Date.now = () => base;
+    view.render(cx);
+    assert.equal(view.workingHouses.size, 0, "the waiting house is not working yet");
+
+    const rolls = [0.1, 0.5, 0.9];
+    let rolled = 0;
+    view.rand = () => rolls[rolled++ % rolls.length];
+    view.sessions[0].status = "busy";
+    view.refresh(base);
+    view.render(cx);
+
+    const houseId = view.plan().seats[0].house.id;
+    assert.deepEqual([...view.workingHouses], [houseId], "the house turned working");
+    const maxDur = SLOTS.smoke_puffs.duration_s[1] * 1000;
+    const cells = view.puffs.get(houseId);
+    assert.deepEqual(cells.map((cell) => Math.round(cell.nextAt - base)), [320, 1600, 2880],
+      "each cell waits its own share of one round's length");
+
+    const fakeCx = { notify: () => {}, timer: { after: () => {} } };
+    view.stepPuffs(fakeCx);
+    assert.ok(cells.filter((cell) => cell.phase === "start").length < 3, "they do not all start on the first beat");
+
+    Date.now = () => base + maxDur + PUFF_TICK_MS;
+    view.stepPuffs(fakeCx);
+    assert.deepEqual(cells.map((cell) => cell.phase), ["start", "start", "start"],
+      "all three start within one round's length plus a tick");
+  } finally {
+    Date.now = realNow;
+  }
+});
+
+test("a working house that sits off the strip never puffs", () => {
+  const rows = "abcdefghij".split("").map((id) => ({ id }));
+  const { view, cx } = sceneOf(rows);
+  view.rand = () => 0.5;
+  view.render(cx);
+  const off = view.plan().seats.find((seat) => seat.visible === false);
+  assert.ok(off && off.display === "working", "the tenth house sits off the strip while working");
+  assert.equal(view.workingHouses.has(off.house.id), false, "an off-strip house does not count as working");
+
+  for (const cells of view.puffs.values()) for (const cell of cells) cell.nextAt = 0;
+  view.stepPuffs({ notify: () => {}, timer: { after: () => {} } });
+  for (const cell of view.puffs.get(off.house.id)) {
+    assert.equal(cell.phase, "idle", "no round starts at an off-strip house");
+    assert.equal(cell.n, 0);
+  }
 });

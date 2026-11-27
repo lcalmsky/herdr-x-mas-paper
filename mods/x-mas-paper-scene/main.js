@@ -12,9 +12,10 @@ import {
 } from "herdr";
 import {
   parseScan, buildSessions, placesOf, countStates, placeSessions, sceneFrame, liveOf,
-  ackOf, lastActivityOf,
-  SCENE_H, WALK_MS, WALK_FIRST_MS, DEMO_STAND_MS, ACCENT_COLORS,
+  ackOf, lastActivityOf, rollPuff,
+  SCENE_H, WALK_MS, WALK_FIRST_MS, DEMO_STAND_MS, ACCENT_COLORS, PUFF_TICK_MS, PUFF_FLIP_MS,
 } from "./model.js";
+import { SLOTS } from "./slots.js";
 import { sceneLayers } from "./scene.js";
 import { demoSessions, demoRead } from "./demo.js";
 import { typeJamo, eraseJamo } from "./hangul.js";
@@ -68,6 +69,19 @@ export default class PaperScene extends View {
     this.demoReads = new Set();
     this.items = [];
     this.walkStep = 0;
+    this.rand = Math.random;
+    this.puffs = new Map();
+    this.workingHouses = new Set();
+    if (SLOTS.smoke_puffs) {
+      const maxDur = SLOTS.smoke_puffs.duration_s[1] * 1000;
+      const now = Date.now();
+      const rand = this.rand;
+      for (const house of SLOTS.houses) {
+        const cells = Array.from({ length: SLOTS.smoke_puffs.puffs_per_chimney }, () =>
+          ({ n: 0, phase: "idle", spec: null, nextAt: now + rand() * maxDur }));
+        this.puffs.set(house.id, cells);
+      }
+    }
     this.keysHeld = false;
     this.backPane = null;
     this.pressed = null;
@@ -86,6 +100,7 @@ export default class PaperScene extends View {
     this.publishNotice();
     this.startWalkers(cx);
     this.startCommands(cx);
+    cx.timer.every(PUFF_TICK_MS, (cx) => this.stepPuffs(cx));
     if (this.demo) return;
     cx.timer.every(POLL_MS, (cx) => this.poll(cx));
     cx.timer.every(FOCUS_WATCH_MS, (cx) => this.watchFocus(cx));
@@ -130,6 +145,32 @@ export default class PaperScene extends View {
     this.walkStep = this.walkStep === 0 ? 1 : this.walkStep === 1 ? 2 : 1;
     cx.notify();
     cx.timer.after(WALK_MS, (cx) => this.stepWalkers(cx));
+  }
+
+  // One tick starts a fresh round for every working house's cell whose time has come. The start
+  // render draws each new element at its start values; PUFF_FLIP_MS later the same element moves
+  // to its end values, so the transition runs.
+  stepPuffs(cx) {
+    const cfg = SLOTS.smoke_puffs;
+    if (!cfg) return;
+    const now = Date.now();
+    const started = [];
+    for (const houseId of this.workingHouses) {
+      for (const cell of this.puffs.get(houseId) ?? []) {
+        if (now < cell.nextAt) continue;
+        cell.n += 1;
+        cell.spec = rollPuff(cfg, this.rand);
+        cell.phase = "start";
+        cell.nextAt = now + cell.spec.dur;
+        started.push(cell);
+      }
+    }
+    if (!started.length) return;
+    cx.notify();
+    cx.timer.after(PUFF_FLIP_MS, (later) => {
+      for (const cell of started) if (cell.phase === "start") cell.phase = "run";
+      later.notify();
+    });
   }
 
   poll(cx) {
@@ -526,9 +567,23 @@ export default class PaperScene extends View {
     const mode = appearance();
     const height = this.height > 0 ? this.height : SCENE_H;
     const plan = placeSessions(this.items, sceneFrame(this.width, height));
+    // A house that starts working re-rolls each cell's first-round offset, so its chimneys never
+    // share a beat. Houses off the strip neither puff nor count as working.
+    const working = new Set(plan.seats
+      .filter((seat) => seat.display === "working" && seat.visible !== false)
+      .map((seat) => seat.house.id));
+    if (SLOTS.smoke_puffs) {
+      const now = Date.now();
+      const maxDur = SLOTS.smoke_puffs.duration_s[1] * 1000;
+      for (const houseId of working) {
+        if (this.workingHouses.has(houseId)) continue;
+        for (const cell of this.puffs.get(houseId) ?? []) cell.nextAt = now + this.rand() * maxDur;
+      }
+    }
+    this.workingHouses = working;
     const selected = plan.seats.find((seat) => seat.id === this.sel && seat.visible !== false)?.house.id ?? null;
     const nodes = sceneLayers({
-      width: this.width, height, mode, seats: plan.seats, plus: plan.plus,
+      width: this.width, height, mode, seats: plan.seats, plus: plan.plus, puffs: this.puffs,
       walkStep: this.walkStep, visit: (seat, click) => this.visit(seat, click),
       keysHeld: this.isGrabbed(), showKeys: this.showKeys, query: this.query,
       selected, accent: accentOf(mode), notice: this.noticeText(),

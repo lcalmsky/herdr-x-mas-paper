@@ -33,8 +33,9 @@ export const PLUS_COLORS = {
 export const ACCENT_COLORS = { light: "#C8423B", dark: "#F2C46D" };
 export const KEYS_LINE = "←→ Select · ↩ Go to · Space Waiting · ⇧Space Unread · ⌫ Read · ? Keys · Esc";
 export const LEGEND_LINE = "←→ Select · ⌥←→ First/Last · ↩ Go to · Space Waiting · ⇧Space Unread · ⌫ Read · ⌘Z Undo · ? Hide · Esc";
-export const FADE_MS = 400, SMOKE_MS = 1200, WALK_MS = 9000, STEP_MS = 500;
+export const FADE_MS = 400, WALK_MS = 9000, STEP_MS = 500;
 export const WALK_FIRST_MS = 600, DEMO_STAND_MS = 2000;
+export const PUFF_TICK_MS = 200, PUFF_FLIP_MS = 34;
 
 const KEY_RE = /(?:^|[^A-Za-z0-9])([A-Za-z][A-Za-z0-9]{1,9}-\d{1,5})(?![0-9])/;
 
@@ -221,6 +222,39 @@ export function countStates(items) {
 
 const HOUSES = new Map(SLOTS.houses.map((house) => [house.id, house]));
 export const houseById = (id) => HOUSES.get(id) ?? null;
+
+// One round of a chimney's smoke: the picture, the rise's length and height, the sideways drift
+// and jitter, and the start and end scales, each picked evenly from the studio's ranges.
+export function rollPuff(cfg, rand) {
+  const between = ([lo, hi]) => lo + rand() * (hi - lo);
+  const pics = Object.keys(cfg.sprites);
+  return {
+    pic: pics[Math.min(pics.length - 1, Math.floor(rand() * pics.length))],
+    dur: Math.round(between(cfg.duration_s) * 1000),
+    rise: between(cfg.rise_px),
+    drift: between(cfg.drift_x_px),
+    jitter: between(cfg.start_jitter_x_px),
+    s0: between(cfg.start_scale),
+    s1: between(cfg.end_scale),
+  };
+}
+
+// A puff picture's box in canvas px at one scale; its anchor is the box's bottom centre.
+export function puffBox(cfg, pic, mode, scale) {
+  const [w, h] = cfg.sprites[pic][mode].size_2x;
+  return { w: (w / 2) * scale, h: (h / 2) * scale };
+}
+
+// How far a chimney's puffs can reach from houses[].smoke (x, y), in canvas px: the widest picture
+// at the largest end scale plus the farthest drift and start jitter, and the same height at that
+// scale plus the longest rise.
+export function puffSpread(cfg) {
+  const sizes = Object.values(cfg.sprites).flatMap((modes) => Object.values(modes).map((sprite) => sprite.size_2x));
+  const half = (Math.max(...sizes.map(([w]) => w)) / 2) * cfg.end_scale[1] / 2;
+  const height = (Math.max(...sizes.map(([, h]) => h)) / 2) * cfg.end_scale[1];
+  const side = Math.max(...cfg.drift_x_px.map(Math.abs)) + Math.max(...cfg.start_jitter_x_px.map(Math.abs));
+  return { left: -(half + side), right: half + side, top: -(height + cfg.rise_px[1]), bottom: 0 };
+}
 
 // The block in canvas px: k takes the taller of the two axis fits, so the picture is never
 // squashed; the block shows the canvas's middle strip. (sx, sy) -> (left + sx·k, top + sy·k).

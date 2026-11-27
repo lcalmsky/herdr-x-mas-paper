@@ -398,7 +398,7 @@ export default class XmasPaperRail extends View {
         .when(focused, (el) => el.child(div().absolute().left(0).top(5).bottom(5).w(3).rounded(2).bg(t.bar)))
         .child(div().relative().flex_none().size(22)
           .child(div().size(22).rounded(7).overflow_hidden()
-            .child(image(`mods/x-mas-paper-rail/faces/${faceIndex(a.address)}.svg`).size_full()))
+            .child(image(`mods/x-mas-paper-rail/faces/${faceIndex(a.address)}.png`).size_full()))
           .child(div().absolute().right(-2).bottom(-2).size(8).rounded(4).bg(state[STATE_ROLE[status]] ?? state.sleep)
             .border(1.5).border_color(focused ? t.focus : entry.active ? t.block : chrome)))
         .child(div().flex_1().min_w(0).truncate().text_size(12).font_family("Nunito").font_weight(focused ? 700 : 600)

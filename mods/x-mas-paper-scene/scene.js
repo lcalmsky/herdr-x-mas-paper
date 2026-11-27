@@ -1,10 +1,11 @@
-// The village picture: one painted scene, a cropped state overlay and a strip of text per seated
-// house, and the two walkers' sprites. Every position is the studio canvas's logical px
-// (3112×320) mapped onto the block; motion is native transitions and loops only.
+// The village picture: one painted scene, the string lights and their three slow blink groups, the
+// selected house's corner brackets, a cropped state overlay and a strip of text per seated house,
+// and the two walkers' sprites. Every position is the studio canvas's logical px (3112×320) mapped
+// onto the block; motion is native transitions and loops only.
 import { div, image } from "gpui-kit";
 import { SLOTS, OVERLAYS } from "./slots.js";
 import {
-  clipText, overlayState, plateSize, sceneFrame, textWidth,
+  clipText, overlayState, plateSize, sceneFrame, textWidth, puffBox, puffSpread,
   LABEL_SIZE, LABEL_WEIGHT, LABEL_PAD_Y, LABEL_PAD_X, LABEL_RADIUS, LABEL_MAX_W, LABEL_BOX, LABEL_COLORS,
   LABEL_FONT, TEXT_FONT,
   PLATE_WEIGHT, PLATE_BOX, PLATE_INK,
@@ -13,12 +14,14 @@ import {
   ZZZ_TEXT, ZZZ_SIZE, ZZZ_WEIGHT, ZZZ_BOX, ZZZ_COLORS,
   PLUS_SIZE, PLUS_WEIGHT, PLUS_PAD_Y, PLUS_PAD_X, PLUS_RADIUS, PLUS_TOP, PLUS_RIGHT, PLUS_COLORS,
   KEYS_SIZE, KEYS_WEIGHT, KEYS_PAD_Y, KEYS_PAD_X, KEYS_RADIUS, KEYS_GAP,
-  EDGE, FADE_MS, SMOKE_MS, WALK_MS, STEP_MS, KEYS_LINE, LEGEND_LINE, ACCENT_COLORS,
+  EDGE, FADE_MS, WALK_MS, STEP_MS, KEYS_LINE, LEGEND_LINE, ACCENT_COLORS,
 } from "./model.js";
 
 const ART = "mods/x-mas-paper-scene/art/";
 const STATES = ["working", "turn", "sleep"];
 const SIDES = ["right", "left"];
+const SELECT_CORNERS = ["tl", "tr", "bl", "br"];
+const BLINK_PERIODS = [2200, 2900, 3600];
 const WALKERS = [
   { id: "a", firstFrame: 1 },
   { id: "b", firstFrame: 2 },
@@ -48,10 +51,19 @@ function unionOf(boxes) {
 const imageIn = (box, group) => image(ART + box.file).absolute()
   .left(r2(-box.ax - group.left)).top(r2(-box.ay - group.top)).w(r2(box.w)).h(r2(box.h));
 
-// The selected house's mark: the studio's selection picture is not drawn yet, so its name chip
-// turns the accent colour with white ink. The house and frame are where that picture will sit.
-export function selectionMark(house, frame, mode, accent) {
-  return { bg: typeof accent === "string" && accent ? accent : ACCENT_COLORS[mode], ink: "#FFFFFF" };
+// The selected house's mark: the studio's four red-paper corner brackets. Every house carries all
+// four from the first frame and only the selected house's fade in, so moving the selection changes
+// opacities, not elements.
+export function selectionMark(house, frame, mode, selected) {
+  if (!house.select) return [];
+  const [w, h] = house.select.size;
+  return SELECT_CORNERS.map((corner) => {
+    const at = house.select[corner];
+    return image(`${ART}select_${corner}_${mode}.png`).id(`paper-select-h${house.id}-${corner}`).absolute()
+      .left(r2(frame.left + at.x * frame.k)).top(r2(frame.top + at.y * frame.k))
+      .w(r2(w * frame.k)).h(r2(h * frame.k))
+      .opacity(house.id === selected ? 1 : 0).transition("opacity", { duration: FADE_MS });
+  });
 }
 
 export function sceneLayers(o) {
@@ -84,6 +96,24 @@ export function sceneLayers(o) {
         .opacity(shown === state ? 1 : 0).transition("opacity", { duration: FADE_MS }));
     }
   }
+
+  // Above the state slices, so the bulbs stay lit while a house is working, on turn or asleep.
+  nodes.push(image(`${ART}lights_${mode}.png`).id("paper-lights").absolute()
+    .left(r2(frame.left)).top(r2(frame.top))
+    .w(r2(SLOTS.canvas_logical[0] * k)).h(r2(SLOTS.canvas_logical[1] * k)));
+
+  // The three blink groups fade in and out over their own periods. gpui has no loop phase, so the
+  // studio's start offsets (0, 1.0, 2.1 s) are left out: all three start together and drift apart.
+  const blinkPeriods = SLOTS.blink?.period_s?.map((seconds) => Math.round(seconds * 1000)) ?? BLINK_PERIODS;
+  for (let i = 0; i < blinkPeriods.length; i += 1) {
+    nodes.push(image(`${ART}blink_${i + 1}_${mode}.png`).id(`paper-blink-${i + 1}`).absolute()
+      .left(r2(frame.left)).top(r2(frame.top))
+      .w(r2(SLOTS.canvas_logical[0] * k)).h(r2(SLOTS.canvas_logical[1] * k))
+      .opacity(0)
+      .loop("opacity", { from: 0, to: 1, period: blinkPeriods[i], easing: "ease-in-out" }));
+  }
+
+  for (const house of SLOTS.houses) nodes.push(...selectionMark(house, frame, mode, o.selected));
 
   for (const seat of seats) {
     const house = seat.house;
@@ -136,17 +166,44 @@ export function sceneLayers(o) {
   }
   nodes.push(laneBox);
 
+  // A working house's chimney puffs: each cell's round is one element drawn at its start values,
+  // then moved to its end values by the property transitions, each with the studio's easing. The
+  // wrapper covers every reach a puff can take and is not clipped, so a high one stays whole.
+  const puffCfg = SLOTS.smoke_puffs;
+  const spread = puffCfg ? puffSpread(puffCfg) : null;
   for (const house of SLOTS.houses) {
     const display = byHouse.get(house.id)?.display;
-    const smoke1 = spriteOf("smoke_1", mode, k);
-    const smoke2 = spriteOf("smoke_2", mode, k);
-    const smoke = unionOf([smoke1, smoke2]);
-    nodes.push(div().id(`paper-smoke-h${house.id}`).absolute()
-      .left(r2(sx(house.smoke.x) + smoke.left)).top(r2(sy(house.smoke.y) + smoke.top))
-      .w(r2(smoke.w)).h(r2(smoke.h))
-      .opacity(display === "working" ? 1 : 0).transition("opacity", { duration: FADE_MS })
-      .child(imageIn(smoke1, smoke).loop("opacity", { from: 50, to: -49, period: SMOKE_MS, easing: "linear" }))
-      .child(imageIn(smoke2, smoke).loop("opacity", { from: -49, to: 50, period: SMOKE_MS, easing: "linear" })));
+    const smoke = div().id(`paper-smoke-h${house.id}`).absolute()
+      .left(r2(sx(house.smoke.x) + s(spread?.left ?? 0))).top(r2(sy(house.smoke.y) + s(spread?.top ?? 0)))
+      .w(r2(s(spread ? spread.right - spread.left : 0))).h(r2(s(spread ? spread.bottom - spread.top : 0)))
+      .opacity(display === "working" ? 1 : 0).transition("opacity", { duration: FADE_MS });
+    if (spread) {
+      const ease = puffCfg.easing ?? {};
+      const moveEase = ease.top_left_width_height ?? "ease-out";
+      const fadeEase = ease.opacity ?? "ease-in";
+      const cells = o.puffs?.get(house.id) ?? [];
+      for (let i = 0; i < cells.length; i += 1) {
+        const cell = cells[i];
+        if (!cell?.spec || cell.phase === "idle") continue;
+        const spec = cell.spec;
+        const sprite = puffCfg.sprites[spec.pic]?.[mode];
+        if (!sprite) continue;
+        const start = cell.phase === "start";
+        const box = puffBox(puffCfg, spec.pic, mode, start ? spec.s0 : spec.s1);
+        const x = house.smoke.x + spec.jitter + (start ? 0 : spec.drift);
+        const y = house.smoke.y - (start ? 0 : spec.rise);
+        smoke.child(image(ART + sprite.file).id(`paper-puff-h${house.id}-${i}-${cell.n}`).absolute()
+          .left(r2(s(x - box.w / 2 - house.smoke.x - spread.left))).top(r2(s(y - box.h - house.smoke.y - spread.top)))
+          .w(r2(s(box.w))).h(r2(s(box.h)))
+          .opacity(start ? 1 : 0)
+          .transition("left", { duration: spec.dur, easing: moveEase })
+          .transition("top", { duration: spec.dur, easing: moveEase })
+          .transition("width", { duration: spec.dur, easing: moveEase })
+          .transition("height", { duration: spec.dur, easing: moveEase })
+          .transition("opacity", { duration: spec.dur, easing: fadeEase }));
+      }
+    }
+    nodes.push(smoke);
 
     const gift = spriteOf("gift", mode, k);
     nodes.push(image(ART + gift.file).id(`paper-gift-h${house.id}`).absolute()
@@ -179,13 +236,12 @@ export function sceneLayers(o) {
     const chipLeft = clamp(sx(house.name_label.x) - chipW / 2, EDGE, width - chipW - EDGE);
     const left = chipLeft - (w - chipW) / 2;
     const top = clamp(sy(house.name_label.y), EDGE, height - chipH);
-    const mark = house.id === o.selected ? selectionMark(house, frame, mode, o.accent) : null;
     nodes.push(div().id(`paper-name-${sidOf(seat.id)}`).absolute().left(r2(left)).top(r2(top)).w(r2(w))
       .flex().justify_center()
-      .child(div().id(`paper-name-chip-${sidOf(seat.id)}`).bg(mark ? mark.bg : label.bg)
+      .child(div().id(`paper-name-chip-${sidOf(seat.id)}`).bg(label.bg)
         .px(r2(s(LABEL_PAD_X))).py(r2(s(LABEL_PAD_Y))).rounded(r2(s(LABEL_RADIUS)))
         .line_height(`${r2(line)}px`).text_size(r2(line)).font_family(LABEL_FONT)
-        .font_weight(LABEL_WEIGHT).text_color(mark ? mark.ink : label.ink)
+        .font_weight(LABEL_WEIGHT).text_color(label.ink)
         .whitespace_nowrap().child(text)));
   }
 

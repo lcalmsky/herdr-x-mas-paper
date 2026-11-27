@@ -823,7 +823,7 @@ export default class ClaudeAccounts extends View {
     const height = pocketHeight(w);
     const profile = w >= POCKET_FULL_W;
     const faceImg = (size) => div().size(size).flex_none().rounded(8).overflow_hidden()
-      .child(image(`mods/x-mas-paper-accounts/faces/${face}.svg`).size_full());
+      .child(image(`mods/x-mas-paper-accounts/faces/${face}.png`).size_full());
     const pill = (text, bg, ink) => div().flex_none().px(6).py(2).rounded(6).bg(bg)
       .text_size(9).font_family(FONT).font_weight(900).text_color(ink).child(text);
     // Ultra's "Fable" needs a wider label lane than 5h/7d; both rows share it so the bars line up.

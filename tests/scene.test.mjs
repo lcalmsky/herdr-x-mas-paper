@@ -9,7 +9,8 @@ import {
   SLEEP_MS, DISPLAY_STATES, displayState, stateOf, clipText, textWidth, buildSessions, placesOf,
   sceneFrame, placeSessions, overlayState, plateSize, SCENE_H, LABEL_SIZE, LABEL_COLORS, LABEL_MAX_W, LABEL_PAD_X,
   LABEL_FONT, TEXT_FONT,
-  BUBBLE_INK, BUBBLE_BG, BUBBLE_SIZE, BUBBLE_PAD_X, ZZZ_SIZE, ZZZ_COLORS, PLUS_COLORS, FADE_MS, WALK_MS, STEP_MS, SMOKE_MS, EDGE, PLATE_INK, PLATE_WEIGHT,
+  BUBBLE_INK, BUBBLE_BG, BUBBLE_SIZE, BUBBLE_PAD_X, ZZZ_SIZE, ZZZ_COLORS, PLUS_COLORS, FADE_MS, WALK_MS, STEP_MS, EDGE, PLATE_INK, PLATE_WEIGHT,
+  rollPuff, puffBox, puffSpread,
 } from "../mods/x-mas-paper-scene/model.js";
 import { SLOTS, OVERLAYS } from "../mods/x-mas-paper-scene/slots.js";
 import { sceneLayers } from "../mods/x-mas-paper-scene/scene.js";
@@ -193,16 +194,79 @@ test("every house carries all three state slices, and only a seated house's own 
   }
 });
 
-test("the working smoke and the walkers flicker with native opacity loops", () => {
+test("each puff round picks every value inside the studio's ranges", () => {
+  const cfg = SLOTS.smoke_puffs;
+  assert.equal(cfg.puffs_per_chimney, 3);
+  for (const value of [0, 0.5, 0.999]) {
+    const spec = rollPuff(cfg, () => value);
+    assert.ok(["p1", "p2", "p3", "p4"].includes(spec.pic), `pic ${spec.pic} at ${value}`);
+    assert.ok(spec.dur >= cfg.duration_s[0] * 1000 && spec.dur <= cfg.duration_s[1] * 1000, `dur ${spec.dur}`);
+    for (const [key, range] of [["rise", cfg.rise_px], ["drift", cfg.drift_x_px], ["jitter", cfg.start_jitter_x_px],
+      ["s0", cfg.start_scale], ["s1", cfg.end_scale]]) {
+      assert.ok(spec[key] >= range[0] && spec[key] <= range[1], `${key} ${spec[key]} at ${value}`);
+    }
+  }
+  assert.equal(rollPuff(cfg, () => 0).pic, "p1", "the lowest roll takes the first picture");
+  assert.equal(rollPuff(cfg, () => 0.999).pic, "p4", "the highest takes the last");
+});
+
+test("a puff is drawn bottom-centre on the chimney, starts small and rises away", () => {
+  const cfg = SLOTS.smoke_puffs;
+  const spec = { pic: "p2", dur: 1800, rise: 40, drift: 6, jitter: 1.5, s0: 0.6, s1: 1.5 };
+  const { frame, seats } = planAt(3112);
+  const working = seats.find((seat) => seat.display === "working");
+  const house = working.house;
+  const k = frame.k;
+  const spread = puffSpread(cfg);
+  const cell = (n, phase) => ({ n, phase, spec, nextAt: 0 });
+  const puffs = new Map([[house.id, [cell(3, "start"), { n: 0, phase: "idle", spec: null, nextAt: 0 }, cell(4, "run")]]]);
+  const { nodes, sizes } = render({ width: 3112, seats, puffs });
+  const wrap = nodes.get(`paper-smoke-h${house.id}`);
+
+  const startId = `paper-puff-h${house.id}-0-3`;
+  const start = nodes.get(startId);
+  assert.ok(start, "the start cell draws a puff");
+  const startBox = puffBox(cfg, spec.pic, "light", spec.s0);
+  const startX = house.smoke.x + spec.jitter;
+  assert.equal(callOf(start, "left"), round2((startX - startBox.w / 2 - house.smoke.x - spread.left) * k));
+  assert.equal(callOf(start, "top"), round2((house.smoke.y - startBox.h - house.smoke.y - spread.top) * k));
+  assert.equal(sizes.get(startId).w, round2(startBox.w * k));
+  assert.equal(sizes.get(startId).h, round2(startBox.h * k));
+  assert.equal(callOf(start, "opacity"), 1, "a round starts fully opaque");
+  const center = callOf(wrap, "left") + callOf(start, "left") + sizes.get(startId).w / 2;
+  assert.ok(Math.abs(center - (frame.left + startX * k)) < 0.02, "its bottom centre sits on smoke.x plus the jitter");
+  const bottom = callOf(wrap, "top") + callOf(start, "top") + sizes.get(startId).h;
+  assert.ok(Math.abs(bottom - (frame.top + house.smoke.y * k)) < 0.02, "and on smoke.y");
+
+  const runId = `paper-puff-h${house.id}-2-4`;
+  const run = nodes.get(runId);
+  assert.ok(run, "the run cell draws a puff");
+  const runBox = puffBox(cfg, spec.pic, "light", spec.s1);
+  const runX = house.smoke.x + spec.jitter + spec.drift;
+  const runY = house.smoke.y - spec.rise;
+  assert.equal(callOf(run, "left"), round2((runX - runBox.w / 2 - house.smoke.x - spread.left) * k));
+  assert.equal(callOf(run, "top"), round2((runY - runBox.h - house.smoke.y - spread.top) * k));
+  assert.equal(sizes.get(runId).w, round2(runBox.w * k));
+  assert.equal(sizes.get(runId).h, round2(runBox.h * k));
+  assert.equal(callOf(run, "opacity"), 0, "a round ends transparent");
+
+  for (const node of [start, run]) {
+    const transitions = Object.fromEntries(node.calls.filter(([key]) => key === "transition").map(([, prop, policy]) => [prop, policy]));
+    for (const prop of ["left", "top", "width", "height"]) {
+      assert.deepEqual(transitions[prop], { duration: spec.dur, easing: "ease-out" }, `${prop} moves with the round`);
+    }
+    assert.deepEqual(transitions.opacity, { duration: spec.dur, easing: "ease-in" }, "the fade runs with the round");
+  }
+
+  assert.equal(nodes.has(`paper-puff-h${house.id}-1-0`), false, "an idle cell draws nothing");
+  const next = render({ width: 3112, seats, puffs: new Map([[house.id, [cell(4, "start")]]]) });
+  assert.ok(next.nodes.get(`paper-puff-h${house.id}-0-4`), "a new round takes a new id");
+  assert.equal(next.nodes.has(`paper-puff-h${house.id}-0-3`), false, "so the old element is gone");
+});
+
+test("the walkers flicker with native opacity loops", () => {
   const { seats } = planAt(3112);
   const { nodes } = render({ width: 3112, seats });
-  const working = seats.find((seat) => seat.display === "working");
-  const smoke = nodes.get(`paper-smoke-h${working.house.id}`);
-  assert.equal(smoke.kids.length, 2);
-  const periods = smoke.kids.map((kid) => loopOf(kid, "opacity").period);
-  assert.deepEqual(periods, [SMOKE_MS, SMOKE_MS], "the two puffs alternate");
-  assert.deepEqual(smoke.kids.map((kid) => [loopOf(kid, "opacity").from, loopOf(kid, "opacity").to]),
-    [[50, -49], [-49, 50]], "the puffs switch instead of cross-fading");
 
   for (const id of ["paper-walker-a-right", "paper-walker-a-left", "paper-walker-b-right", "paper-walker-b-left"]) {
     const group = nodes.get(id);
@@ -214,6 +278,70 @@ test("the working smoke and the walkers flicker with native opacity loops", () =
       assert.equal(kid.calls.filter(([key, prop]) => key === "loop" && prop !== "opacity").length, 0, "only opacity moves");
     }
   }
+});
+
+test("the string lights and the three blink groups fade slowly over their own periods", () => {
+  const { frame, seats } = planAt(3112);
+  const { nodes } = render({ width: 3112, seats });
+  const lights = nodes.get("paper-lights");
+  assert.equal(lights.src, `${SRC}lights_light.png`);
+  assert.equal(callOf(lights, "left"), round2(frame.left), "the lights sit on the background's box");
+  assert.equal(callOf(lights, "top"), round2(frame.top));
+  const periods = SLOTS.blink.period_s.map((seconds) => Math.round(seconds * 1000));
+  assert.deepEqual(periods, [2200, 2900, 3600]);
+  for (let i = 0; i < 3; i += 1) {
+    const node = nodes.get(`paper-blink-${i + 1}`);
+    assert.equal(node.src, `${SRC}blink_${i + 1}_light.png`);
+    const loop = loopOf(node, "opacity");
+    assert.deepEqual([loop.from, loop.to, loop.period, loop.easing], [0, 1, periods[i], "ease-in-out"],
+      `blink_${i + 1} cross-fades, never switches`);
+    assert.ok(loop.from >= 0 && loop.from <= 1 && loop.to >= 0 && loop.to <= 1,
+      `blink_${i + 1} stays inside 0..1`);
+  }
+});
+
+test("the lights, blink groups and brackets sit over the states and under the words", () => {
+  const { seats } = planAt(3112);
+  const { nodes } = render({ width: 3112, seats, selected: seats[0].house.id });
+  const order = [...nodes.keys()];
+  const firstOf = (prefix) => order.findIndex((id) => id.startsWith(prefix));
+  const lastOf = (prefix) => order.reduce((at, id, i) => (id.startsWith(prefix) ? i : at), -1);
+  assert.equal(order[0], "paper-scene-bg");
+  assert.ok(lastOf("paper-scene-bg") < firstOf("paper-state-"), "the states paint over the background");
+  assert.ok(lastOf("paper-state-") < order.indexOf("paper-lights"), "the lights paint over every state");
+  assert.ok(order.indexOf("paper-lights") < order.indexOf("paper-blink-1"));
+  assert.ok(order.indexOf("paper-blink-1") < order.indexOf("paper-blink-2"));
+  assert.ok(order.indexOf("paper-blink-2") < order.indexOf("paper-blink-3"));
+  assert.ok(order.indexOf("paper-blink-3") < firstOf("paper-select-"), "the brackets paint over the blink groups");
+  assert.ok(lastOf("paper-select-") < order.indexOf("paper-walkers"), "the walkers paint over the brackets");
+  assert.ok(order.indexOf("paper-walkers") < firstOf("paper-plate-"));
+  assert.ok(order.indexOf("paper-walkers") < firstOf("paper-name-"));
+  assert.ok(order.indexOf("paper-walkers") < firstOf("paper-bubble-"));
+});
+
+test("every house draws four selection brackets, and only the selected house's show", () => {
+  const { frame, seats } = planAt(3112);
+  const bracketIds = SLOTS.houses.flatMap((house) =>
+    ["tl", "tr", "bl", "br"].map((corner) => `paper-select-h${house.id}-${corner}`));
+  assert.equal(bracketIds.length, 48);
+
+  const none = render({ width: 3112, seats }).nodes;
+  for (const id of bracketIds) assert.equal(callOf(none.get(id), "opacity"), 0, `${id} stays hidden with no selection`);
+
+  const selected = seats[0].house.id;
+  const { nodes, sizes } = render({ width: 3112, seats, selected });
+  for (const id of bracketIds) {
+    assert.equal(callOf(nodes.get(id), "opacity"), id.startsWith(`paper-select-h${selected}-`) ? 1 : 0, `${id} opacity`);
+    assert.equal(transitionOf(nodes.get(id)).duration, FADE_MS, `${id} fades`);
+  }
+
+  const house1 = SLOTS.houses.find((house) => house.id === 1);
+  const tl = nodes.get("paper-select-h1-tl");
+  assert.equal(tl.src, `${SRC}select_tl_light.png`);
+  assert.equal(callOf(tl, "left"), round2(frame.left + house1.select.tl.x * frame.k));
+  assert.equal(callOf(tl, "top"), round2(frame.top + house1.select.tl.y * frame.k));
+  assert.deepEqual([callOf(tl, "left"), callOf(tl, "top")], [290, 152], "house 1's top-left bracket sits at (290,152)");
+  assert.deepEqual(sizes.get("paper-select-h1-tl"), { w: 20, h: 20 }, "each bracket is 20×20 logical px");
 });
 
 test("the first frame shows A as walker_right_1 and B as walker_left_2", () => {
@@ -451,11 +579,17 @@ test("every overlay and sprite the scene names is in art/, and each house has th
         assert.ok(record.w > 0 && record.h > 0, `${record.file} has a real rectangle`);
       }
     }
-    for (const name of ["smoke_1", "smoke_2", "gift", "walker_left_1", "walker_left_2", "walker_right_1", "walker_right_2"]) {
+    for (const name of ["gift", "walker_left_1", "walker_left_2", "walker_right_1", "walker_right_2"]) {
       assert.ok(files.has(SLOTS.sprites[name][mode].file), `${name} ${mode} is in art/`);
     }
   }
   assert.equal([...files].filter((name) => name.startsWith("state_")).length, 72, "twelve houses, three states, two modes");
+  const puffFiles = new Set(readdirSync(`${ART}puffs`));
+  for (const modes of Object.values(SLOTS.smoke_puffs.sprites)) {
+    for (const mode of ["light", "dark"]) {
+      assert.ok(puffFiles.has(modes[mode].file.replace("puffs/", "")), `${modes[mode].file} is in art/puffs/`);
+    }
+  }
 });
 
 test("a click on a seated house's doorway visits its session", () => {
@@ -513,12 +647,12 @@ const walkerId = (id, width, height = SCENE_H) =>
 const callOf = (node, name) => node.calls.find(([key]) => key === name)?.[1];
 const loopOf = (node, name) => node.calls.find(([key, prop]) => key === "loop" && prop === name)?.[2];
 const transitionOf = (node) => node.calls.find(([key]) => key === "transition")?.[2];
-function render({ width, height = SCENE_H, mode = "light", seats, plus = 0, walkStep = 0, demo = false, visit = () => {} }) {
+function render({ width, height = SCENE_H, mode = "light", seats, plus = 0, walkStep = 0, demo = false, selected = null, puffs = null, visit = () => {} }) {
   globalThis.uiNodes = new Map();
   globalThis.uiSizes = new Map();
   globalThis.uiHandlers = new Map();
   try {
-    sceneLayers({ width, height, mode, seats, plus, walkStep, demo, visit });
+    sceneLayers({ width, height, mode, seats, plus, walkStep, demo, selected, puffs, visit });
     return {
       nodes: new Map(globalThis.uiNodes),
       sizes: new Map(globalThis.uiSizes),

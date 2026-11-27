@@ -89,6 +89,29 @@ export const SLOTS = {
     "x": 384,
     "y": 154,
     "anchor": "bottom-left"
+   },
+   "select": {
+    "anchor": "top-left",
+    "size": [
+     20,
+     20
+    ],
+    "tl": {
+     "x": 290,
+     "y": 152
+    },
+    "tr": {
+     "x": 382,
+     "y": 152
+    },
+    "bl": {
+     "x": 290,
+     "y": 220
+    },
+    "br": {
+     "x": 382,
+     "y": 220
+    }
    }
   },
   {
@@ -152,6 +175,29 @@ export const SLOTS = {
     "x": 566,
     "y": 156,
     "anchor": "bottom-left"
+   },
+   "select": {
+    "anchor": "top-left",
+    "size": [
+     20,
+     20
+    ],
+    "tl": {
+     "x": 438,
+     "y": 154
+    },
+    "tr": {
+     "x": 564,
+     "y": 154
+    },
+    "bl": {
+     "x": 438,
+     "y": 270
+    },
+    "br": {
+     "x": 564,
+     "y": 270
+    }
    }
   },
   {
@@ -215,6 +261,29 @@ export const SLOTS = {
     "x": 806,
     "y": 136,
     "anchor": "bottom-left"
+   },
+   "select": {
+    "anchor": "top-left",
+    "size": [
+     20,
+     20
+    ],
+    "tl": {
+     "x": 700,
+     "y": 134
+    },
+    "tr": {
+     "x": 804,
+     "y": 134
+    },
+    "bl": {
+     "x": 700,
+     "y": 240
+    },
+    "br": {
+     "x": 804,
+     "y": 240
+    }
    }
   },
   {
@@ -278,6 +347,29 @@ export const SLOTS = {
     "x": 1106,
     "y": 156,
     "anchor": "bottom-left"
+   },
+   "select": {
+    "anchor": "top-left",
+    "size": [
+     20,
+     20
+    ],
+    "tl": {
+     "x": 946,
+     "y": 154
+    },
+    "tr": {
+     "x": 1104,
+     "y": 154
+    },
+    "bl": {
+     "x": 946,
+     "y": 272
+    },
+    "br": {
+     "x": 1104,
+     "y": 272
+    }
    }
   },
   {
@@ -341,6 +433,29 @@ export const SLOTS = {
     "x": 1211,
     "y": 37,
     "anchor": "bottom-left"
+   },
+   "select": {
+    "anchor": "top-left",
+    "size": [
+     20,
+     20
+    ],
+    "tl": {
+     "x": 1128,
+     "y": 35
+    },
+    "tr": {
+     "x": 1209,
+     "y": 35
+    },
+    "bl": {
+     "x": 1128,
+     "y": 152
+    },
+    "br": {
+     "x": 1209,
+     "y": 152
+    }
    }
   },
   {
@@ -404,6 +519,29 @@ export const SLOTS = {
     "x": 1394,
     "y": 145,
     "anchor": "bottom-left"
+   },
+   "select": {
+    "anchor": "top-left",
+    "size": [
+     20,
+     20
+    ],
+    "tl": {
+     "x": 1268,
+     "y": 143
+    },
+    "tr": {
+     "x": 1392,
+     "y": 143
+    },
+    "bl": {
+     "x": 1268,
+     "y": 275
+    },
+    "br": {
+     "x": 1392,
+     "y": 275
+    }
    }
   },
   {
@@ -467,6 +605,29 @@ export const SLOTS = {
     "x": 1815,
     "y": 146,
     "anchor": "bottom-left"
+   },
+   "select": {
+    "anchor": "top-left",
+    "size": [
+     20,
+     20
+    ],
+    "tl": {
+     "x": 1698,
+     "y": 144
+    },
+    "tr": {
+     "x": 1813,
+     "y": 144
+    },
+    "bl": {
+     "x": 1698,
+     "y": 280
+    },
+    "br": {
+     "x": 1813,
+     "y": 280
+    }
    }
   },
   {
@@ -530,6 +691,29 @@ export const SLOTS = {
     "x": 2014,
     "y": 114,
     "anchor": "bottom-left"
+   },
+   "select": {
+    "anchor": "top-left",
+    "size": [
+     20,
+     20
+    ],
+    "tl": {
+     "x": 1868,
+     "y": 104
+    },
+    "tr": {
+     "x": 2012,
+     "y": 112
+    },
+    "bl": {
+     "x": 1868,
+     "y": 177
+    },
+    "br": {
+     "x": 2012,
+     "y": 177
+    }
    }
   },
   {
@@ -593,6 +777,29 @@ export const SLOTS = {
     "x": 2154,
     "y": 141,
     "anchor": "bottom-left"
+   },
+   "select": {
+    "anchor": "top-left",
+    "size": [
+     20,
+     20
+    ],
+    "tl": {
+     "x": 2075,
+     "y": 139
+    },
+    "tr": {
+     "x": 2152,
+     "y": 139
+    },
+    "bl": {
+     "x": 2075,
+     "y": 275
+    },
+    "br": {
+     "x": 2152,
+     "y": 275
+    }
    }
   },
   {
@@ -656,6 +863,29 @@ export const SLOTS = {
     "x": 2454,
     "y": 150,
     "anchor": "bottom-left"
+   },
+   "select": {
+    "anchor": "top-left",
+    "size": [
+     20,
+     20
+    ],
+    "tl": {
+     "x": 2263,
+     "y": 148
+    },
+    "tr": {
+     "x": 2452,
+     "y": 148
+    },
+    "bl": {
+     "x": 2263,
+     "y": 217
+    },
+    "br": {
+     "x": 2452,
+     "y": 217
+    }
    }
   },
   {
@@ -719,6 +949,29 @@ export const SLOTS = {
     "x": 2694,
     "y": 181,
     "anchor": "bottom-left"
+   },
+   "select": {
+    "anchor": "top-left",
+    "size": [
+     20,
+     20
+    ],
+    "tl": {
+     "x": 2533,
+     "y": 179
+    },
+    "tr": {
+     "x": 2692,
+     "y": 179
+    },
+    "bl": {
+     "x": 2533,
+     "y": 268
+    },
+    "br": {
+     "x": 2692,
+     "y": 268
+    }
    }
   },
   {
@@ -782,94 +1035,164 @@ export const SLOTS = {
     "x": 2819,
     "y": 112,
     "anchor": "bottom-left"
+   },
+   "select": {
+    "anchor": "top-left",
+    "size": [
+     20,
+     20
+    ],
+    "tl": {
+     "x": 2713,
+     "y": 110
+    },
+    "tr": {
+     "x": 2817,
+     "y": 110
+    },
+    "bl": {
+     "x": 2713,
+     "y": 181
+    },
+    "br": {
+     "x": 2817,
+     "y": 172
+    }
    }
   }
  ],
+ "blink": {
+  "files": [
+   "blink_1",
+   "blink_2",
+   "blink_3"
+  ],
+  "period_s": [
+   2.2,
+   2.9,
+   3.6
+  ],
+  "phase_s": [
+   0,
+   1.0,
+   2.1
+  ],
+  "curve": "투명도 0→1→0, ease-in-out, 단번에 켜고 끄지 않음"
+ },
+ "smoke_puffs": {
+  "note": "smoke_1/2 교대 대신 쓴다. 굴뚝마다 뭉게 3개가 각자 따로 돈다. 한 회차: houses[].smoke 기준점에 뭉게 그림의 bottom-center 를 맞춰 시작 배율·투명도 1 로 새 id 로 그린 뒤, 다음 렌더에서 목표값으로 바꾸고 같은 길이의 전환을 건다. 끝나면 새 id 로 다시 시작. 회차마다 아래 범위에서 무작위로 뽑고, 첫 회차 시작 시각도 0~길이 안에서 무작위",
+  "puffs_per_chimney": 3,
+  "sprites": {
+   "p1": {
+    "light": {
+     "file": "puffs/puff_p1_light.png",
+     "size_2x": [
+      37,
+      38
+     ],
+     "anchor": "bottom-center"
+    },
+    "dark": {
+     "file": "puffs/puff_p1_dark.png",
+     "size_2x": [
+      37,
+      38
+     ],
+     "anchor": "bottom-center"
+    }
+   },
+   "p2": {
+    "light": {
+     "file": "puffs/puff_p2_light.png",
+     "size_2x": [
+      45,
+      39
+     ],
+     "anchor": "bottom-center"
+    },
+    "dark": {
+     "file": "puffs/puff_p2_dark.png",
+     "size_2x": [
+      45,
+      39
+     ],
+     "anchor": "bottom-center"
+    }
+   },
+   "p3": {
+    "light": {
+     "file": "puffs/puff_p3_light.png",
+     "size_2x": [
+      45,
+      44
+     ],
+     "anchor": "bottom-center"
+    },
+    "dark": {
+     "file": "puffs/puff_p3_dark.png",
+     "size_2x": [
+      45,
+      44
+     ],
+     "anchor": "bottom-center"
+    }
+   },
+   "p4": {
+    "light": {
+     "file": "puffs/puff_p4_light.png",
+     "size_2x": [
+      42,
+      36
+     ],
+     "anchor": "bottom-center"
+    },
+    "dark": {
+     "file": "puffs/puff_p4_dark.png",
+     "size_2x": [
+      42,
+      36
+     ],
+     "anchor": "bottom-center"
+    }
+   }
+  },
+  "pick_sprite": "회차마다 p1~p4 중 무작위",
+  "duration_s": [
+   1.5,
+   3.2
+  ],
+  "rise_px": [
+   34,
+   52
+  ],
+  "drift_x_px": [
+   -10,
+   10
+  ],
+  "start_jitter_x_px": [
+   -2,
+   2
+  ],
+  "start_scale": [
+   0.5,
+   0.65
+  ],
+  "end_scale": [
+   1.3,
+   1.7
+  ],
+  "opacity": [
+   1,
+   0
+  ],
+  "easing": {
+   "top_left_width_height": "ease-out",
+   "opacity": "ease-in"
+  },
+  "units": "px 는 논리 px(3112 기준). 배율은 뭉게 그림 원래 크기(size_2x 의 절반이 논리 크기)에 곱함",
+  "draft": "drafts/smoke-puffs.html (승인된 움직임 흉내)"
+ },
  "sprites": {
-  "smoke_1": {
-   "light": {
-    "file": "smoke_1_light.png",
-    "size_2x": [
-     61,
-     57
-    ],
-    "size_logical": [
-     30.5,
-     28.5
-    ],
-    "anchor": "bottom-center",
-    "anchor_px_2x": [
-     30.5,
-     52
-    ],
-    "anchor_logical": [
-     15.2,
-     26.0
-    ]
-   },
-   "dark": {
-    "file": "smoke_1_dark.png",
-    "size_2x": [
-     62,
-     59
-    ],
-    "size_logical": [
-     31.0,
-     29.5
-    ],
-    "anchor": "bottom-center",
-    "anchor_px_2x": [
-     31.0,
-     53
-    ],
-    "anchor_logical": [
-     15.5,
-     26.5
-    ]
-   }
-  },
-  "smoke_2": {
-   "light": {
-    "file": "smoke_2_light.png",
-    "size_2x": [
-     66,
-     79
-    ],
-    "size_logical": [
-     33.0,
-     39.5
-    ],
-    "anchor": "bottom-center",
-    "anchor_px_2x": [
-     33.0,
-     75
-    ],
-    "anchor_logical": [
-     16.5,
-     37.5
-    ]
-   },
-   "dark": {
-    "file": "smoke_2_dark.png",
-    "size_2x": [
-     68,
-     81
-    ],
-    "size_logical": [
-     34.0,
-     40.5
-    ],
-    "anchor": "bottom-center",
-    "anchor_px_2x": [
-     34.0,
-     75
-    ],
-    "anchor_logical": [
-     17.0,
-     37.5
-    ]
-   }
-  },
   "gift": {
    "light": {
     "file": "gift_light.png",
