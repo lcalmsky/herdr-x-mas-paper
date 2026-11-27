@@ -245,8 +245,26 @@ test("a walker crosses the lane in one linear transition and turns at its ends",
   assert.ok(Math.abs(delta(first, away, b) + 220) < 0.02, "B walks 220 px to the left end");
   assert.ok(Math.abs(delta(away, back, a) + 270) < 0.02, "then A crosses the 270 px lane back");
   assert.ok(Math.abs(delta(away, back, b) - 270) < 0.02, "and B crosses it the other way");
-  assert.equal(callOf(away.get("paper-walker-a-left"), "opacity"), 1, "A faces left at the right end");
-  assert.equal(callOf(away.get("paper-walker-b-right"), "opacity"), 1, "B faces right at the left end");
+  assert.equal(callOf(away.get("paper-walker-a-right"), "opacity"), 1, "A faces right as it walks right");
+  assert.equal(callOf(away.get("paper-walker-b-left"), "opacity"), 1, "B faces left as it walks left");
+});
+
+test("a walker faces the way each step moves it", () => {
+  const { seats } = planAt(1176, 320);
+  const steps = [0, 1, 2].map((walkStep) => render({ width: 1176, height: 320, seats, walkStep }).nodes);
+  const wrapOf = (id) => walkerId(id, 1176, 320);
+  for (const [from, to] of [[0, 1], [1, 2], [2, 1]]) {
+    for (const id of ["a", "b"]) {
+      const moved = callOf(steps[to].get(wrapOf(id)), "left") - callOf(steps[from].get(wrapOf(id)), "left");
+      assert.notEqual(moved, 0, `step ${from}->${to}: walker ${id} changes its left`);
+      const faces = moved > 0 ? "right" : "left";
+      const away = faces === "right" ? "left" : "right";
+      assert.equal(callOf(steps[to].get(`paper-walker-${id}-${faces}`), "opacity"), 1,
+        `step ${from}->${to}: walker ${id} moves ${moved > 0 ? "right" : "left"} and faces ${faces}`);
+      assert.equal(callOf(steps[to].get(`paper-walker-${id}-${away}`), "opacity"), 0,
+        `step ${from}->${to}: walker ${id} hides its ${away} view`);
+    }
+  }
 });
 
 // The walkers' four sprites as one anchored box, the same union scene.js builds.

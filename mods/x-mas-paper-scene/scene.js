@@ -96,8 +96,8 @@ export function sceneLayers(o) {
   const step = [0, 1, 2].includes(o.walkStep) ? o.walkStep : 0;
   const poses = [
     [{ x: lane.x[0] + 40, side: "right" }, { x: lane.x[1] - 50, side: "left" }],
-    [{ x: lane.x[1], side: "left" }, { x: lane.x[0], side: "right" }],
-    [{ x: lane.x[0], side: "right" }, { x: lane.x[1], side: "left" }],
+    [{ x: lane.x[1], side: "right" }, { x: lane.x[0], side: "left" }],
+    [{ x: lane.x[0], side: "left" }, { x: lane.x[1], side: "right" }],
   ][step];
   const all = unionOf(SIDES.flatMap((s2) => [spriteOf(`walker_${s2}_1`, mode, k), spriteOf(`walker_${s2}_2`, mode, k)]));
   const lanePad = -all.left;
