@@ -14,7 +14,6 @@ ROOT = os.path.dirname(HERE)
 MOD = os.path.join(ROOT, "mods", "x-mas-paper-scene")
 ART = os.path.join(MOD, "art")
 SLOTS_JS = os.path.join(MOD, "slots.js")
-DEFAULT = "<base-folder>"
 SCALE = 2
 STATES = ("working", "turn", "sleep")
 MODES = ("light", "dark")
@@ -154,9 +153,9 @@ def write_slots_js(slots, overlays):
 
 
 def main():
-    if len(sys.argv) > 2:
-        fail("usage: build-scene-art.py [<materials-folder>]")
-    src = os.path.abspath(sys.argv[1]) if len(sys.argv) == 2 else DEFAULT
+    if len(sys.argv) != 2:
+        fail("usage: build-scene-art.py <materials-folder>")
+    src = os.path.abspath(sys.argv[1])
     if not os.path.isdir(src):
         fail("no materials folder at %s" % src)
     check_sources(src)
