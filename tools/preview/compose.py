@@ -1,27 +1,45 @@
 """Picks the gallery frames and composes the two preview pictures.
 
 Takes several frames per theme, keeps the dark frame whose chimney shows three puffs and whose
-tree keeps two walkers, and the first light frame that keeps two walkers, then lays them out as a
-2560x1600 gallery picture (dark row on top, light row below) and a 640x400 layout picture (night on
-the left, day on the right).
+tree keeps two walkers, and the first light frame that keeps two walkers. The gallery picture is a
+poster of that dark frame: its village band sits large on a night sky, with a terminal card and a
+rail card below. The layout picture cuts the light frame around the tree and the notes house.
 
 Every coordinate below is in the 6720x1800 shot, which is the 3360x900 window at 2x. If the demo
-scene's placement changes, re-fit VILLAGE (all five houses, docs through api) and the two rail
-ranges, keeping each cut on a group or card boundary rather than through one.
+scene's placement changes, re-fit the village band (all five houses, docs through api), the terminal
+band (the prompt line down to the "3 of 3 routes pass" line), the rail band (the north-pole and
+cocoa-house groups, cut on a group boundary) and the 640 band (the tree, the notes house and its
+Your turn bubble).
 """
 import argparse
+import random
 import sys
-from PIL import Image, ImageDraw
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 SHOT = (6720, 1800)
 LANE = (2850, 500, 3600, 660)      # the walkers band under the tree
 BOX = (2700, 120, 2860, 320)       # the chimney's smoke
 
-W, H, ROW, PAD, GAP, RAD = 2560, 1600, 800, 56, 32, 24
-BG_DARK, BG_LIGHT = (0x1E, 0x2A, 0x44), (0xFB, 0xF8, 0xF2)
-VILLAGE = (2250, 14, 4010, 655)                      # R3
-RAIL_DARK = (6240, 85, 6710, 745)                    # R4: north-pole + cocoa-house groups
-RAIL_LIGHT = (6240, 945, 6710, 1427)                 # R5: Work + Side account cards
+GALLERY = (2560, 1600)
+SKY_TOP, SKY_BOT = (12, 24, 54), (18, 32, 66)
+VILLAGE = (1840, 16, 4400, 655)    # the five painted houses, docs through api
+VILLAGE_Y = 60
+VILLAGE_FADE = (220, 220, 140, 0)  # left, right, top, bottom
+TERMINAL = (40, 775, 1880, 1470)   # the prompt line down to "3 of 3 routes pass"
+TERMINAL_SCALE = 0.9
+TERMINAL_PAD = (44, 36)
+TERMINAL_BG = (24, 32, 58)
+RAIL = (6236, 84, 6716, 770)       # the north-pole and cocoa-house groups
+RAIL_PAD = 20
+RAIL_BG = (30, 42, 68)
+CARD_RAD = 28
+CARD_BG = (30, 42, 68)
+CARD_BORDER = (58, 72, 108)
+CARD_GAP = 40
+BOTTOM = 96
+STAR_CENTERS = ((3325, 90, 34), (2659, 135, 28), (2910, 266, 26))  # x, y, half-size
+STARS_N, STARS_SEED = 24, 7
+LAYOUT = (2738, 14, 3762, 654)     # tree, the notes house and its Your turn bubble
 
 
 def load(paths, theme):
@@ -137,13 +155,113 @@ def pick_light(paths, images):
     return None
 
 
-def place(canvas, src, box, x, y, s):
-    cut = src.crop(box)
-    cut = cut.resize((round(cut.width * s), round(cut.height * s)), Image.LANCZOS)
-    mask = Image.new("L", cut.size, 0)
-    ImageDraw.Draw(mask).rounded_rectangle((0, 0, cut.width - 1, cut.height - 1), RAD, fill=255)
-    canvas.paste(cut, (x, y), mask)
-    return cut.size
+def sky():
+    width, height = GALLERY
+    image = Image.new("RGB", (width, height))
+    draw = ImageDraw.Draw(image)
+    for y in range(height):
+        t = y / (height - 1)
+        draw.line([(0, y), (width, y)],
+                  fill=tuple(round(a + (b - a) * t) for a, b in zip(SKY_TOP, SKY_BOT)))
+    return image
+
+
+def star_sprites(dark):
+    return [dark.crop((x - half, y - half, x + half, y + half)) for x, y, half in STAR_CENTERS]
+
+
+def scatter_stars(image, sprites, avoid, n=STARS_N, seed=STARS_SEED):
+    width, height = GALLERY
+    rng = random.Random(seed)
+    for _ in range(n * 6):
+        if n <= 0:
+            break
+        sprite = rng.choice(sprites)
+        scale = rng.uniform(0.5, 1.0)
+        sprite = sprite.resize((int(sprite.width * scale), int(sprite.height * scale)), Image.LANCZOS)
+        x = rng.randint(20, width - 80)
+        y = rng.randint(20, height - 80)
+        if any(x + sprite.width > a and x < c and y + sprite.height > b and y < e for a, b, c, e in avoid):
+            continue
+        mask = sprite.convert("L").point(lambda v: 0 if v < 70 else min(255, (v - 70) * 3))
+        image.paste(sprite, (x, y), mask)
+        n -= 1
+
+
+def feather(image, left, right, top, bottom):
+    mask = Image.new("L", image.size, 255)
+    draw = ImageDraw.Draw(mask)
+    width, height = image.size
+    for i in range(left):
+        draw.line([(i, 0), (i, height)], fill=int(255 * i / left))
+    for i in range(right):
+        draw.line([(width - 1 - i, 0), (width - 1 - i, height)], fill=int(255 * i / right))
+    if top:
+        edge = Image.new("L", image.size, 255)
+        edge_draw = ImageDraw.Draw(edge)
+        for i in range(top):
+            edge_draw.line([(0, i), (width, i)], fill=int(255 * i / top))
+        mask = ImageChops.multiply(mask, edge)
+    if bottom:
+        edge = Image.new("L", image.size, 255)
+        edge_draw = ImageDraw.Draw(edge)
+        for i in range(bottom):
+            edge_draw.line([(0, height - 1 - i), (width, height - 1 - i)], fill=int(255 * i / bottom))
+        mask = ImageChops.multiply(mask, edge)
+    return mask
+
+
+def rounded_mask(size, radius):
+    mask = Image.new("L", size, 0)
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, size[0] - 1, size[1] - 1), radius, fill=255)
+    return mask
+
+
+def card(canvas, content, xy, radius=CARD_RAD, pad=0, bg=CARD_BG, border=CARD_BORDER, shadow=True):
+    width, height = content.width + 2 * pad, content.height + 2 * pad
+    x, y = xy
+    if shadow:
+        shade = Image.new("L", canvas.size, 0)
+        ImageDraw.Draw(shade).rounded_rectangle((x, y + 18, x + width, y + height + 18), radius, fill=150)
+        shade = shade.filter(ImageFilter.GaussianBlur(36))
+        canvas.paste(Image.new("RGB", canvas.size, (2, 5, 14)), (0, 0), shade)
+    plate = Image.new("RGB", (width, height), bg)
+    plate.paste(content, (pad, pad))
+    if border:
+        ImageDraw.Draw(plate).rounded_rectangle((0, 0, width - 1, height - 1), radius, outline=border, width=2)
+    canvas.paste(plate, (x, y), rounded_mask((width, height), radius))
+
+
+def cut(image, box, scale):
+    piece = image.crop(box)
+    return piece.resize((round(piece.width * scale), round(piece.height * scale)), Image.LANCZOS)
+
+
+def poster(dark):
+    width, height = GALLERY
+    image = sky()
+    village = dark.crop(VILLAGE)
+    terminal = cut(dark, TERMINAL, TERMINAL_SCALE)
+    rail = cut(dark, RAIL, 1.0)
+    terminal_card = Image.new("RGB", (terminal.width + 2 * TERMINAL_PAD[0],
+                                     terminal.height + 2 * TERMINAL_PAD[1]), TERMINAL_BG)
+    terminal_card.paste(terminal, TERMINAL_PAD)
+    rail_card = Image.new("RGB", (rail.width + 2 * RAIL_PAD, terminal_card.height), RAIL_BG)
+    rail_card.paste(rail, (RAIL_PAD, (rail_card.height - rail.height) // 2))
+    total = terminal_card.width + CARD_GAP + rail_card.width
+    x0 = (width - total) // 2
+    y = height - BOTTOM - terminal_card.height
+    scatter_stars(image, star_sprites(dark),
+                  [(0, VILLAGE_Y, width, VILLAGE_Y + village.height), (x0 - 40, y - 40, x0 + total + 40, height)])
+    image.paste(village, (0, VILLAGE_Y), feather(village, *VILLAGE_FADE))
+    card(image, terminal_card, (x0, y), bg=TERMINAL_BG)
+    card(image, rail_card, (x0 + terminal_card.width + CARD_GAP, y), bg=RAIL_BG)
+    return image
+
+
+def layout640(light):
+    x0, y0, x1, y1 = LAYOUT
+    return light.crop((x0, y0, x1, y1)).resize((640, 400), Image.LANCZOS)
 
 
 def main():
@@ -171,27 +289,8 @@ def main():
     sys.stderr.write(f"compose.py: dark {dark[1]}\n")
     sys.stderr.write(f"compose.py: light {light[1]}\n")
 
-    canvas = Image.new("RGB", (W, H))
-    draw = ImageDraw.Draw(canvas)
-    draw.rectangle((0, 0, W, ROW - 1), fill=BG_DARK)
-    draw.rectangle((0, ROW, W, H), fill=BG_LIGHT)
-    content_h = ROW - 2 * PAD
-    for row, (src, rail) in enumerate([(dark[0], RAIL_DARK), (light[0], RAIL_LIGHT)]):
-        top = row * ROW + PAD
-        s = content_h / (VILLAGE[3] - VILLAGE[1])
-        village_w, _ = place(canvas, src, VILLAGE, PAD, top, s)
-        cx = PAD + village_w + GAP
-        cw = W - PAD - cx
-        rw, rh = rail[2] - rail[0], rail[3] - rail[1]
-        rs = min(cw / rw, content_h / rh)
-        place(canvas, src, rail, cx + (cw - round(rw * rs)) // 2, top + (content_h - round(rh * rs)) // 2, rs)
-    canvas.save(args.out_hero)
-
-    x0, y0, x1, y1, seam = 2738, 14, 3762, 654, 3400
-    cut = Image.new("RGB", (x1 - x0, y1 - y0))
-    cut.paste(dark[0].crop((x0, y0, seam, y1)), (0, 0))
-    cut.paste(light[0].crop((seam, y0, x1, y1)), (seam - x0, 0))
-    cut.resize((640, 400), Image.LANCZOS).save(args.out_layout)
+    poster(dark[0]).save(args.out_hero)
+    layout640(light[0]).save(args.out_layout)
 
 
 if __name__ == "__main__":

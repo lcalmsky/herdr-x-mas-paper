@@ -1,10 +1,10 @@
 #!/bin/sh
-# Renders preview.png (2560x1600: the dark theme on top and the light theme below) and
-# layouts/x-mas-paper.png (640x400: night on the tree side, day on the notes side) from a preview
-# window that shows invented demo data only. Shoots several frames per theme at 3360x900 on a 2x
-# screen and lets tools/preview/compose.py pick the scene: three puffs from the chimney and two
-# walkers under the tree. Refuses while the screen is locked, another preview window is already
-# running, or a notification or dialog sits over the window.
+# Renders preview.png (2560x1600: the dark theme as a poster, its village scene large on a night sky
+# above a terminal card and a rail card) and layouts/x-mas-paper.png (640x400: the light theme's tree
+# and notes house with its Your turn bubble) from a preview window that shows invented demo data
+# only. Shoots several frames per theme at 3360x900 on a 2x screen and lets tools/preview/compose.py
+# pick the scene (three puffs from the chimney and two walkers under the tree), refusing while the
+# screen is locked, another preview window is running, or a notification or dialog sits over it.
 #   tools/preview/render.sh
 set -eu
 REPO=$(cd "$(dirname "$0")/../.." && pwd)
@@ -104,6 +104,19 @@ command -v uv >/dev/null 2>&1 || {
   exit 1
 }
 
+# compose.py takes a median of each theme's frames, so fewer than five cannot be composed; stop
+# before the window opens.
+shots_ok() {
+  case $1 in ''|*[!0-9]*|0?*) return 1 ;; esac
+  [ "$1" -ge 5 ]
+}
+LIGHT_SHOTS=${LIGHT_SHOTS:-8}
+DARK_SHOTS=${DARK_SHOTS:-24}
+if ! shots_ok "$LIGHT_SHOTS" || ! shots_ok "$DARK_SHOTS"; then
+  echo "render.sh: LIGHT_SHOTS and DARK_SHOTS must be whole numbers of at least 5 (compose.py takes a median); nothing written" >&2
+  exit 2
+fi
+
 if ! console=$(ioreg -n Root -d1 -a 2>/dev/null) || [ -z "$console" ]; then
   echo "render.sh: cannot read the screen state (ioreg failed); not rendering blind" >&2
   exit 3
@@ -175,7 +188,6 @@ shot_size=$(picture_size "$WORK/settled.png")
   exit 1
 }
 
-LIGHT_SHOTS=${LIGHT_SHOTS:-8}
 i=1
 while [ "$i" -le "$LIGHT_SHOTS" ]; do
   refuse_overlay
@@ -188,7 +200,6 @@ set_appearance dark
 /bin/sleep "${DARK_WAIT:-3}"
 settled_shot "$WORK/settled.png"
 
-DARK_SHOTS=${DARK_SHOTS:-24}
 i=1
 while [ "$i" -le "$DARK_SHOTS" ]; do
   refuse_overlay

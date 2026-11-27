@@ -28,7 +28,7 @@ node --import ./tests/stubs/register.mjs --test tests/
 tools/preview/render.sh
 ```
 
-`preview.png`(2560×1600, 위는 어두운 테마·아래는 밝은 테마, 줄마다 마을 구간과 레일 조각: 위는 세션 목록, 아래는 계정 카드)와 `layouts/x-mas-paper.png`(640×400, 트리 쪽은 밤·notes 쪽은 낮)를 다시 만든다. 3360×900 창을 띄워(6720×1800 촬영본이라 2배 화면이 필요하다) 테마마다 여러 장(`LIGHT_SHOTS`, `DARK_SHOTS`)을 찍고, `tools/preview/compose.py` 가 굴뚝 연기 세 알과 트리 아래 주민 둘이 보이는 장면을 골라 합성한다. macOS 와 `uv`(https://docs.astral.sh/uv/)가 필요하고, 화면이 잠겨 있거나 미리보기 창이 이미 떠 있거나 창 위에 알림·대화상자가 있으면 아무것도 쓰지 않고 멈춘다.
+`preview.png`(2560×1600, 어두운 테마의 마을 장면을 밤하늘 위에 크게 두고 그 아래에 터미널 카드와 레일 카드(세션 목록)를 놓은 포스터형)와 `layouts/x-mas-paper.png`(640×400, 밝은 테마의 트리와 notes 집·`Your turn` 말풍선을 자른 그림)를 다시 만든다. 3360×900 창을 띄워(6720×1800 촬영본이라 2배 화면이 필요하다) 테마마다 여러 장(`LIGHT_SHOTS`, `DARK_SHOTS`)을 찍고, `tools/preview/compose.py` 가 굴뚝 연기 세 알과 트리 아래 주민 둘이 보이는 장면을 골라 합성한다. macOS 와 `uv`(https://docs.astral.sh/uv/)가 필요하고, 화면이 잠겨 있거나 미리보기 창이 이미 떠 있거나 창 위에 알림·대화상자가 있으면 아무것도 쓰지 않고 멈춘다.
 
 - `tools/preview/build-layout.py` 가 `layouts/x-mas-paper.json` 을 그림용으로 고친다: 장면·레일·계정·탭 블록에 `props.demo` 를 넣고, 터미널 블록을 `tools/preview/mods/x-mas-paper-demo-term` 로 바꾼다.
 - 지어낸 데모 데이터는 `mods/x-mas-paper-scene/demo.js`, `mods/x-mas-paper-rail/demo.js`, `mods/x-mas-paper-accounts/demo.js`, `mods/x-mas-paper-tabs/main.js` 의 `DEMO_SPACE`, `tools/preview/mods/x-mas-paper-demo-term/main.js` 에 있다.
