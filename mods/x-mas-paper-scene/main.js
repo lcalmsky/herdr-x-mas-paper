@@ -13,9 +13,12 @@ import {
 import {
   parseScan, buildSessions, placesOf, countStates, placeSessions, sceneFrame, liveOf,
   ackOf, lastActivityOf, rollPuff,
-  SCENE_H, WALK_MS, WALK_FIRST_MS, DEMO_STAND_MS, ACCENT_COLORS, PUFF_TICK_MS, PUFF_FLIP_MS,
+  SCENE_H, ACCENT_COLORS, PUFF_TICK_MS, PUFF_FLIP_MS,
 } from "./model.js";
 import { SLOTS } from "./slots.js";
+import {
+  DOOR_HOUSES, DEMO_SEED, makeHill, makeResidents, mulberry32, nextWake, stepHill, stepVillage,
+} from "./village.js";
 import { sceneLayers } from "./scene.js";
 import { demoSessions, demoRead } from "./demo.js";
 import { typeJamo, eraseJamo } from "./hangul.js";
@@ -33,6 +36,15 @@ const NOTICE_KEY = "x-mas-paper-scene.notice";
 const NOTICE_ACT_KEY = "x-mas-paper-scene.notice-act";
 const READ_KEY = "paper.scene.read";
 const READ_NOTICE = "Marked as read · ⌘Z Undo";
+
+// The front doors a resident may step into: house id -> the door's foot on the canvas.
+function doorMap() {
+  const doors = {};
+  for (const house of SLOTS.houses) {
+    if (DOOR_HOUSES.includes(house.id)) doors[house.id] = { x: house.door.x, y: house.door.bottom_y };
+  }
+  return doors;
+}
 
 export function appearance() {
   const bg = String(theme()?.background ?? "#ffffff").replace("#", "");
@@ -68,7 +80,6 @@ export default class PaperScene extends View {
     this.read = this.demo ? new Set() : loadRead();
     this.demoReads = new Set();
     this.items = [];
-    this.walkStep = 0;
     this.rand = Math.random;
     this.puffs = new Map();
     this.workingHouses = new Set();
@@ -82,6 +93,12 @@ export default class PaperScene extends View {
         this.puffs.set(house.id, cells);
       }
     }
+    // The demo draws the same resident and hill walk on every launch; the live scene is random.
+    this.doors = doorMap();
+    this.villageRand = this.demo ? mulberry32(DEMO_SEED) : Math.random;
+    const startAt = Date.now();
+    this.residents = makeResidents(this.villageRand, startAt);
+    this.hill = makeHill(this.villageRand, startAt);
     this.keysHeld = false;
     this.backPane = null;
     this.pressed = null;
@@ -98,7 +115,7 @@ export default class PaperScene extends View {
     this.navUntil = 0;
     this.refresh(Date.now());
     this.publishNotice();
-    this.startWalkers(cx);
+    this.scheduleVillage(cx);
     this.startCommands(cx);
     cx.timer.every(PUFF_TICK_MS, (cx) => this.stepPuffs(cx));
     if (this.demo) return;
@@ -134,17 +151,28 @@ export default class PaperScene extends View {
     return null;
   }
 
-  // Each walker's crossing is a left transition, so a render must follow each end of it: the first
-  // render draws both waiting at their starts, then these timers walk them to one lane end and
-  // turn them back at every end after that.
-  startWalkers(cx) {
-    cx.timer.after(this.demo ? DEMO_STAND_MS : WALK_FIRST_MS, (cx) => this.stepWalkers(cx));
+  // One timer chain drives the village: each fire steps every resident and the hill whose time has
+  // come, then sleeps until the next due moment. Transitions carry the movement between renders.
+  scheduleVillage(cx) {
+    const wait = Math.max(50, nextWake(this.residents, this.hill) - Date.now());
+    cx.timer.after(wait, (later) => this.tickVillage(later));
   }
 
-  stepWalkers(cx) {
-    this.walkStep = this.walkStep === 0 ? 1 : this.walkStep === 1 ? 2 : 1;
-    cx.notify();
-    cx.timer.after(WALK_MS, (cx) => this.stepWalkers(cx));
+  // A sled that has just left its start is flipped to its run after PUFF_FLIP_MS, the same beat the
+  // puffs use, so the element first draws at `from` and then transitions to `to`.
+  tickVillage(cx) {
+    const now = Date.now();
+    const before = this.hill.sled.phase;
+    const walked = stepVillage(this.residents, this.doors, this.villageRand, now);
+    const hills = stepHill(this.hill, this.villageRand, now);
+    if (before !== "start" && this.hill.sled.phase === "start") {
+      cx.timer.after(PUFF_FLIP_MS, (later) => {
+        if (this.hill.sled.phase === "start") this.hill.sled.phase = "run";
+        later.notify();
+      });
+    }
+    if (walked || hills) cx.notify();
+    this.scheduleVillage(cx);
   }
 
   // One tick starts a fresh round for every working house's cell whose time has come. The start
@@ -215,7 +243,16 @@ export default class PaperScene extends View {
     }
     const list = agents();
     const alive = new Set(list.map((a) => a.address));
-    for (const a of list) if (this.since[a.address]?.status !== a.status) this.since[a.address] = { status: a.status, at: now };
+    // Herdr turns done into idle once the pane is looked at, so the finished turn's key is kept
+    // until the agent works again. A finished turn that stays done while `seq` moves is a new turn.
+    for (const a of list) {
+      const prev = this.since[a.address];
+      const key = `agent:${a.address}+${a.seq ?? 0}`;
+      if (prev?.status === a.status && !(a.status === "done" && prev.doneKey !== key)) continue;
+      const kept = a.status === "idle" ? prev?.doneKey ?? null : null;
+      const doneKey = a.status === "done" ? key : kept;
+      this.since[a.address] = { status: a.status, at: kept ? prev.at : now, doneKey };
+    }
     for (const address of Object.keys(this.since)) if (!alive.has(address)) delete this.since[address];
     this.items = buildSessions({
       sessions: this.sessions, agents: list, terminals: terminals(), panes: panes(),
@@ -268,10 +305,6 @@ export default class PaperScene extends View {
       run("pane.focus", item.pane ? { pane: item.pane } : { terminal: item.terminal });
     } else if (this.isGrabbed()) {
       this.leaveKeys(cx);
-    }
-    if (item.ackKey && !this.read.has(item.ackKey)) {
-      this.read.add(item.ackKey);
-      this.saveRead();
     }
     this.refresh(Date.now());
     cx?.notify?.();
@@ -458,7 +491,8 @@ export default class PaperScene extends View {
     cx?.notify?.();
   }
 
-  // The selected unread session becomes read: its gift box goes, as when its house is clicked.
+  // The selected unread session becomes read and its gift box goes. Only ⌫ does this; visiting
+  // a session leaves it in the ⇧Space round.
   acknowledge(cx) {
     const seat = this.selectedSeat();
     if (!seat || seat.display !== "unread" || !seat.ackKey) return false;
@@ -584,7 +618,7 @@ export default class PaperScene extends View {
     const selected = plan.seats.find((seat) => seat.id === this.sel && seat.visible !== false)?.house.id ?? null;
     const nodes = sceneLayers({
       width: this.width, height, mode, seats: plan.seats, plus: plan.plus, puffs: this.puffs,
-      walkStep: this.walkStep, visit: (seat, click) => this.visit(seat, click),
+      residents: this.residents, hill: this.hill, visit: (seat, click) => this.visit(seat, click),
       keysHeld: this.isGrabbed(), showKeys: this.showKeys, query: this.query,
       selected, accent: accentOf(mode), notice: this.noticeText(),
     });

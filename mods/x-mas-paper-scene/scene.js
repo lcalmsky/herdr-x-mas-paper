@@ -1,7 +1,7 @@
-// The village picture: one painted scene, the string lights and their three slow blink groups, the
-// selected house's corner brackets, a cropped state overlay and a strip of text per seated house,
-// and the two walkers' sprites. Every position is the studio canvas's logical px (3112×320) mapped
-// onto the block; motion is native transitions and loops only.
+// The village picture: one painted scene, the hill's props, the string lights and their three slow
+// blink groups, the selected house's corner brackets, a cropped state overlay and a strip of text
+// per seated house, and the residents walking the whole street. Every position is the studio
+// canvas's logical px (3112×320) mapped onto the block; motion is native transitions and loops only.
 import { div, image } from "gpui-kit";
 import { SLOTS, OVERLAYS } from "./slots.js";
 import {
@@ -14,28 +14,44 @@ import {
   ZZZ_TEXT, ZZZ_SIZE, ZZZ_WEIGHT, ZZZ_BOX, ZZZ_COLORS,
   PLUS_SIZE, PLUS_WEIGHT, PLUS_PAD_Y, PLUS_PAD_X, PLUS_RADIUS, PLUS_TOP, PLUS_RIGHT, PLUS_COLORS,
   KEYS_SIZE, KEYS_WEIGHT, KEYS_PAD_Y, KEYS_PAD_X, KEYS_RADIUS, KEYS_GAP,
-  EDGE, FADE_MS, WALK_MS, STEP_MS, KEYS_LINE, LEGEND_LINE, ACCENT_COLORS,
+  EDGE, FADE_MS, STEP_MS, KEYS_LINE, LEGEND_LINE, ACCENT_COLORS,
 } from "./model.js";
+import {
+  HILL_PROPS, SLED_MS, SLED_FADE_MS, walking as isWalking, FADE_MS as VILLAGE_FADE_MS,
+} from "./village.js";
 
 const ART = "mods/x-mas-paper-scene/art/";
 const STATES = ["working", "turn", "sleep"];
 const SIDES = ["right", "left"];
 const SELECT_CORNERS = ["tl", "tr", "bl", "br"];
 const BLINK_PERIODS = [2200, 2900, 3600];
-const WALKERS = [
-  { id: "a", firstFrame: 1 },
-  { id: "b", firstFrame: 2 },
-];
 const r2 = (n) => Math.round(n * 100) / 100;
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const sidOf = (id) => String(id).replace(/[^\w-]/g, "_");
 
 // A sprite's box in screen px at this frame's scale.
-function spriteOf(name, mode, k) {
+function spriteOf(name, mode, k, scale = 1) {
   const sprite = SLOTS.sprites[name][mode];
   const [w, h] = sprite.size_logical;
   const [ax, ay] = sprite.anchor_logical;
+  return { file: sprite.file, w: w * k * scale, h: h * k * scale, ax: ax * k * scale, ay: ay * k * scale };
+}
+
+// A sprite's box, or null while the studio has not delivered that picture.
+function spriteMaybe(name, mode, k) {
+  const sprite = SLOTS.sprites?.[name]?.[mode];
+  if (!sprite) return null;
+  const [w, h] = sprite.size_logical;
+  const [ax, ay] = sprite.anchor_logical;
   return { file: sprite.file, w: w * k, h: h * k, ax: ax * k, ay: ay * k };
+}
+
+// A look's own walk pictures are drawn at their size (the kid's already smaller); only the shared
+// walker fallback is scaled down for a kid.
+function residentSprite(look, side, n, mode, k, scale) {
+  const own = `walker_${look}_${side}_${n}`;
+  if (SLOTS.sprites?.[own]?.[mode]) return spriteOf(own, mode, k);
+  return spriteOf(`walker_${side}_${n}`, mode, k, scale);
 }
 
 // The box that holds sprites anchored on one point, in offsets from that point.
@@ -97,6 +113,55 @@ export function sceneLayers(o) {
     }
   }
 
+  // The hill's props sit over the state slices and under the lights (rule 12); a prop whose picture
+  // the studio has not delivered yet is skipped, never guessed at, and with no pictures at all the
+  // layer is not drawn.
+  const hillAt = SLOTS.hill_props ?? HILL_PROPS;
+  const props = [];
+  const putProp = (name, x, y, id, opacity = null) => {
+    const sprite = spriteMaybe(name, mode, k);
+    if (!sprite) return;
+    const prop = image(ART + sprite.file).id(id).absolute()
+      .left(r2(x * k - sprite.ax)).top(r2(y * k - sprite.ay))
+      .w(r2(sprite.w)).h(r2(sprite.h));
+    if (opacity != null) prop.opacity(opacity).transition("opacity", { duration: VILLAGE_FADE_MS });
+    props.push(prop);
+  };
+  for (const key of ["snowman_1", "snowman_2", "gift_pile"]) {
+    const at = hillAt[key];
+    if (at) putProp(key, at.x, at.y, `paper-hill-${key}`);
+  }
+  for (const [key, index] of [["deer_a", 0], ["deer_b", 1]]) {
+    const at = hillAt[key];
+    if (!at) continue;
+    const dipping = Boolean(o.hill?.deer?.[index]?.dipping);
+    putProp(`reindeer_up_${at.side}`, at.x, at.y, `paper-hill-${key}-up`, dipping ? 0 : 1);
+    putProp(`reindeer_down_${at.side}`, at.x, at.y, `paper-hill-${key}-down`, dipping ? 1 : 0);
+  }
+  const sledProp = hillAt.sled;
+  const sled = o.hill?.sled;
+  if (sledProp && sled && sled.phase !== "wait") {
+    const sprite = spriteMaybe("sled_kid", mode, k);
+    const running = sled.phase === "run";
+    const at = running ? sledProp.to : sledProp.from;
+    if (sprite) {
+      props.push(image(ART + sprite.file).id(`paper-sled-${sled.n}`).absolute()
+        .left(r2(at.x * k - sprite.ax)).top(r2(at.y * k - sprite.ay))
+        .w(r2(sprite.w)).h(r2(sprite.h))
+        .opacity(running ? 0 : 1)
+        .transition("left", { duration: SLED_MS, easing: "linear" })
+        .transition("top", { duration: SLED_MS, easing: "linear" })
+        .transition("opacity", { duration: SLED_FADE_MS, delay: SLED_MS }));
+    }
+  }
+  if (props.length) {
+    const hill = div().id("paper-hill").absolute()
+      .left(r2(frame.left)).top(r2(frame.top))
+      .w(r2(SLOTS.canvas_logical[0] * k)).h(r2(SLOTS.canvas_logical[1] * k));
+    for (const prop of props) hill.child(prop);
+    nodes.push(hill);
+  }
+
   // Above the state slices, so the bulbs stay lit while a house is working, on turn or asleep.
   nodes.push(image(`${ART}lights_${mode}.png`).id("paper-lights").absolute()
     .left(r2(frame.left)).top(r2(frame.top))
@@ -125,46 +190,46 @@ export function sceneLayers(o) {
       .on_click((_event, cx) => o.visit?.(seat, cx)));
   }
 
-  // The two walkers share the tree's lane. Step 0 is the picture's first pose; steps 1 and 2 turn
-  // them at the lane's ends, and the left transition carries each one there in WALK_MS.
-  // They sit inside a lane box placed straight on the scene, so a crop moves that one box and the
-  // walkers' own lefts stay relative to it. Their own left still scales with k, so the id carries
-  // k too: a new scale draws a new element at its pose instead of sliding there over WALK_MS, while
-  // one scale keeps the id and its step transition.
-  const lane = SLOTS.walker_lane;
-  const step = [0, 1, 2].includes(o.walkStep) ? o.walkStep : 0;
-  const poses = [
-    [{ x: lane.x[0] + 40, side: "right" }, { x: lane.x[1] - 50, side: "left" }],
-    [{ x: lane.x[1], side: "right" }, { x: lane.x[0], side: "left" }],
-    [{ x: lane.x[0], side: "left" }, { x: lane.x[1], side: "right" }],
-  ][step];
-  const all = unionOf(SIDES.flatMap((s2) => [spriteOf(`walker_${s2}_1`, mode, k), spriteOf(`walker_${s2}_2`, mode, k)]));
-  const lanePad = -all.left;
-  const laneBox = div().id("paper-walkers").absolute()
-    .left(r2(sx(lane.x[0]) - lanePad)).top(r2(sy(lane.floor_y) + all.top))
-    .w(r2(s(lane.x[1] - lane.x[0]) + 2 * lanePad)).h(r2(all.h));
-  for (let i = 0; i < WALKERS.length; i += 1) {
-    const spec = WALKERS[i];
-    const pose = poses[i];
-    const x = pose.x;
-    const side = pose.side;
-    const wrap = div().id(`paper-walker-${spec.id}-${Math.round(k * 1000)}`).absolute()
-      .left(r2((x - lane.x[0]) * k + lanePad + all.left)).top(0).w(r2(all.w)).h(r2(all.h))
-      .transition("left", { duration: WALK_MS, easing: "linear" });
+  // The residents walk the whole street. One box sits on the canvas, so a crop moves that one box;
+  // each resident's wrap carries a sprite box whose left/top run as linear transitions for exactly
+  // the step just taken, and whose opacity follows the door fade. The id carries k, so a new scale
+  // draws a new element at its place instead of sliding there. Larger base y draws later, in front.
+  const street = div().id("paper-residents").absolute()
+    .left(r2(frame.left)).top(r2(frame.top))
+    .w(r2(SLOTS.canvas_logical[0] * k)).h(r2(SLOTS.canvas_logical[1] * k));
+  const residents = [...(o.residents ?? [])].sort((a, b) => a.base - b.base);
+  for (const resident of residents) {
+    const scale = resident.scale ?? 1;
+    const all = unionOf(SIDES.flatMap((side) => [1, 2].map((n) => residentSprite(resident.look, side, n, mode, k, scale))));
+    const feet = isWalking(resident);
+    const wrap = div().id(`paper-resident-${resident.id}-${Math.round(k * 1000)}`).absolute()
+      .left(r2(resident.x * k + all.left)).top(r2(resident.y * k + all.top))
+      .w(r2(all.w)).h(r2(all.h))
+      .opacity(resident.op ?? 1)
+      .transition("left", { duration: resident.moveMs ?? 0, easing: "linear" })
+      .transition("top", { duration: resident.moveMs ?? 0, easing: "linear" })
+      .transition("opacity", { duration: VILLAGE_FADE_MS });
     for (const groupSide of SIDES) {
-      const first = spriteOf(`walker_${groupSide}_1`, mode, k);
-      const second = spriteOf(`walker_${groupSide}_2`, mode, k);
+      const first = residentSprite(resident.look, groupSide, 1, mode, k, scale);
+      const second = residentSprite(resident.look, groupSide, 2, mode, k, scale);
       const group = unionOf([first, second]);
-      const frames = spec.firstFrame === 1 ? [first, second] : [second, first];
-      wrap.child(div().id(`paper-walker-${spec.id}-${groupSide}`).absolute()
+      const stepA = imageIn(first, group);
+      const stepB = imageIn(second, group);
+      if (feet) {
+        stepA.loop("opacity", { from: 50, to: -49, period: STEP_MS, easing: "linear" });
+        stepB.loop("opacity", { from: -49, to: 50, period: STEP_MS, easing: "linear" });
+      } else {
+        stepA.opacity(1);
+        stepB.opacity(0);
+      }
+      wrap.child(div().id(`paper-resident-${resident.id}-${groupSide}`).absolute()
         .left(r2(group.left - all.left)).top(r2(group.top - all.top)).w(r2(group.w)).h(r2(group.h))
-        .opacity(side === groupSide ? 1 : 0)
-        .child(imageIn(frames[0], group).loop("opacity", { from: 50, to: -49, period: STEP_MS, easing: "linear" }))
-        .child(imageIn(frames[1], group).loop("opacity", { from: -49, to: 50, period: STEP_MS, easing: "linear" })));
+        .opacity(resident.side === groupSide ? 1 : 0)
+        .child(stepA).child(stepB));
     }
-    laneBox.child(wrap);
+    street.child(wrap);
   }
-  nodes.push(laneBox);
+  nodes.push(street);
 
   // A working house's chimney puffs: each cell's round is one element drawn at its start values,
   // then moved to its end values by the property transitions, each with the studio's easing. The

@@ -18,15 +18,6 @@ export const SLOTS = {
   12,
   1
  ],
- "walker_lane": {
-  "x": [
-   1420,
-   1690
-  ],
-  "floor_y": 314,
-  "label_note": "name_label.surface 는 이름표 자리 바탕의 밝기다. 어두운 화면 글자색 #DCE3EE 는 tone 이 light 인 자리(뒤 언덕 눈 위)에서 대비가 낮다",
-  "note": "트리 앞 땅. 걷는 주민 그림의 바닥 가운데를 floor_y 에 맞춘다"
- },
  "houses": [
   {
    "id": 1,
@@ -1192,6 +1183,40 @@ export const SLOTS = {
   "units": "px 는 논리 px(3112 기준). 배율은 뭉게 그림 원래 크기(size_2x 의 절반이 논리 크기)에 곱함",
   "draft": "drafts/smoke-puffs.html (승인된 움직임 흉내)"
  },
+ "hill_props": {
+  "snowman_1": {
+   "x": 640,
+   "y": 219
+  },
+  "snowman_2": {
+   "x": 1265,
+   "y": 173
+  },
+  "gift_pile": {
+   "x": 600,
+   "y": 221
+  },
+  "deer_a": {
+   "x": 1648,
+   "y": 205,
+   "side": "right"
+  },
+  "deer_b": {
+   "x": 1680,
+   "y": 196,
+   "side": "left"
+  },
+  "sled": {
+   "from": {
+    "x": 1392,
+    "y": 183
+   },
+   "to": {
+    "x": 1482,
+    "y": 207
+   }
+  }
+ },
  "sprites": {
   "gift": {
    "light": {
@@ -1400,6 +1425,1014 @@ export const SLOTS = {
     "anchor_logical": [
      13.8,
      57.0
+    ]
+   }
+  },
+  "gift_pile": {
+   "light": {
+    "file": "gift_pile_light.png",
+    "size_2x": [
+     59,
+     34
+    ],
+    "size_logical": [
+     29.5,
+     17.0
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     29.5,
+     32
+    ],
+    "anchor_logical": [
+     14.8,
+     16.0
+    ]
+   },
+   "dark": {
+    "file": "gift_pile_dark.png",
+    "size_2x": [
+     59,
+     34
+    ],
+    "size_logical": [
+     29.5,
+     17.0
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     29.5,
+     32
+    ],
+    "anchor_logical": [
+     14.8,
+     16.0
+    ]
+   }
+  },
+  "reindeer_down_left": {
+   "light": {
+    "file": "reindeer_down_left_light.png",
+    "size_2x": [
+     60,
+     44
+    ],
+    "size_logical": [
+     30.0,
+     22.0
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     30.0,
+     42
+    ],
+    "anchor_logical": [
+     15.0,
+     21.0
+    ]
+   },
+   "dark": {
+    "file": "reindeer_down_left_dark.png",
+    "size_2x": [
+     60,
+     45
+    ],
+    "size_logical": [
+     30.0,
+     22.5
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     30.0,
+     43
+    ],
+    "anchor_logical": [
+     15.0,
+     21.5
+    ]
+   }
+  },
+  "reindeer_down_right": {
+   "light": {
+    "file": "reindeer_down_right_light.png",
+    "size_2x": [
+     60,
+     44
+    ],
+    "size_logical": [
+     30.0,
+     22.0
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     30.0,
+     42
+    ],
+    "anchor_logical": [
+     15.0,
+     21.0
+    ]
+   },
+   "dark": {
+    "file": "reindeer_down_right_dark.png",
+    "size_2x": [
+     60,
+     45
+    ],
+    "size_logical": [
+     30.0,
+     22.5
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     30.0,
+     43
+    ],
+    "anchor_logical": [
+     15.0,
+     21.5
+    ]
+   }
+  },
+  "reindeer_up_left": {
+   "light": {
+    "file": "reindeer_up_left_light.png",
+    "size_2x": [
+     50,
+     63
+    ],
+    "size_logical": [
+     25.0,
+     31.5
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     25.0,
+     61
+    ],
+    "anchor_logical": [
+     12.5,
+     30.5
+    ]
+   },
+   "dark": {
+    "file": "reindeer_up_left_dark.png",
+    "size_2x": [
+     50,
+     64
+    ],
+    "size_logical": [
+     25.0,
+     32.0
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     25.0,
+     62
+    ],
+    "anchor_logical": [
+     12.5,
+     31.0
+    ]
+   }
+  },
+  "reindeer_up_right": {
+   "light": {
+    "file": "reindeer_up_right_light.png",
+    "size_2x": [
+     50,
+     63
+    ],
+    "size_logical": [
+     25.0,
+     31.5
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     25.0,
+     61
+    ],
+    "anchor_logical": [
+     12.5,
+     30.5
+    ]
+   },
+   "dark": {
+    "file": "reindeer_up_right_dark.png",
+    "size_2x": [
+     50,
+     64
+    ],
+    "size_logical": [
+     25.0,
+     32.0
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     25.0,
+     62
+    ],
+    "anchor_logical": [
+     12.5,
+     31.0
+    ]
+   }
+  },
+  "sled_kid": {
+   "light": {
+    "file": "sled_kid_light.png",
+    "size_2x": [
+     53,
+     55
+    ],
+    "size_logical": [
+     26.5,
+     27.5
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     26.5,
+     54
+    ],
+    "anchor_logical": [
+     13.2,
+     27.0
+    ]
+   },
+   "dark": {
+    "file": "sled_kid_dark.png",
+    "size_2x": [
+     54,
+     55
+    ],
+    "size_logical": [
+     27.0,
+     27.5
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     27.0,
+     53
+    ],
+    "anchor_logical": [
+     13.5,
+     26.5
+    ]
+   }
+  },
+  "snowman_1": {
+   "light": {
+    "file": "snowman_1_light.png",
+    "size_2x": [
+     41,
+     63
+    ],
+    "size_logical": [
+     20.5,
+     31.5
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     20.5,
+     61
+    ],
+    "anchor_logical": [
+     10.2,
+     30.5
+    ]
+   },
+   "dark": {
+    "file": "snowman_1_dark.png",
+    "size_2x": [
+     41,
+     64
+    ],
+    "size_logical": [
+     20.5,
+     32.0
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     20.5,
+     62
+    ],
+    "anchor_logical": [
+     10.2,
+     31.0
+    ]
+   }
+  },
+  "snowman_2": {
+   "light": {
+    "file": "snowman_2_light.png",
+    "size_2x": [
+     47,
+     62
+    ],
+    "size_logical": [
+     23.5,
+     31.0
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     23.5,
+     60
+    ],
+    "anchor_logical": [
+     11.8,
+     30.0
+    ]
+   },
+   "dark": {
+    "file": "snowman_2_dark.png",
+    "size_2x": [
+     47,
+     63
+    ],
+    "size_logical": [
+     23.5,
+     31.5
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     23.5,
+     61
+    ],
+    "anchor_logical": [
+     11.8,
+     30.5
+    ]
+   }
+  },
+  "walker_gift_left_1": {
+   "light": {
+    "file": "walker_gift_left_1_light.png",
+    "size_2x": [
+     73,
+     120
+    ],
+    "size_logical": [
+     36.5,
+     60.0
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     36.5,
+     117
+    ],
+    "anchor_logical": [
+     18.2,
+     58.5
+    ]
+   },
+   "dark": {
+    "file": "walker_gift_left_1_dark.png",
+    "size_2x": [
+     74,
+     120
+    ],
+    "size_logical": [
+     37.0,
+     60.0
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     37.0,
+     117
+    ],
+    "anchor_logical": [
+     18.5,
+     58.5
+    ]
+   }
+  },
+  "walker_gift_left_2": {
+   "light": {
+    "file": "walker_gift_left_2_light.png",
+    "size_2x": [
+     58,
+     120
+    ],
+    "size_logical": [
+     29.0,
+     60.0
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     29.0,
+     117
+    ],
+    "anchor_logical": [
+     14.5,
+     58.5
+    ]
+   },
+   "dark": {
+    "file": "walker_gift_left_2_dark.png",
+    "size_2x": [
+     59,
+     120
+    ],
+    "size_logical": [
+     29.5,
+     60.0
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     29.5,
+     117
+    ],
+    "anchor_logical": [
+     14.8,
+     58.5
+    ]
+   }
+  },
+  "walker_gift_right_1": {
+   "light": {
+    "file": "walker_gift_right_1_light.png",
+    "size_2x": [
+     73,
+     120
+    ],
+    "size_logical": [
+     36.5,
+     60.0
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     36.5,
+     117
+    ],
+    "anchor_logical": [
+     18.2,
+     58.5
+    ]
+   },
+   "dark": {
+    "file": "walker_gift_right_1_dark.png",
+    "size_2x": [
+     74,
+     120
+    ],
+    "size_logical": [
+     37.0,
+     60.0
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     37.0,
+     117
+    ],
+    "anchor_logical": [
+     18.5,
+     58.5
+    ]
+   }
+  },
+  "walker_gift_right_2": {
+   "light": {
+    "file": "walker_gift_right_2_light.png",
+    "size_2x": [
+     58,
+     120
+    ],
+    "size_logical": [
+     29.0,
+     60.0
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     29.0,
+     117
+    ],
+    "anchor_logical": [
+     14.5,
+     58.5
+    ]
+   },
+   "dark": {
+    "file": "walker_gift_right_2_dark.png",
+    "size_2x": [
+     59,
+     120
+    ],
+    "size_logical": [
+     29.5,
+     60.0
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     29.5,
+     117
+    ],
+    "anchor_logical": [
+     14.8,
+     58.5
+    ]
+   }
+  },
+  "walker_kid_left_1": {
+   "light": {
+    "file": "walker_kid_left_1_light.png",
+    "size_2x": [
+     54,
+     95
+    ],
+    "size_logical": [
+     27.0,
+     47.5
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     27.0,
+     93
+    ],
+    "anchor_logical": [
+     13.5,
+     46.5
+    ]
+   },
+   "dark": {
+    "file": "walker_kid_left_1_dark.png",
+    "size_2x": [
+     54,
+     95
+    ],
+    "size_logical": [
+     27.0,
+     47.5
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     27.0,
+     93
+    ],
+    "anchor_logical": [
+     13.5,
+     46.5
+    ]
+   }
+  },
+  "walker_kid_left_2": {
+   "light": {
+    "file": "walker_kid_left_2_light.png",
+    "size_2x": [
+     41,
+     95
+    ],
+    "size_logical": [
+     20.5,
+     47.5
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     20.5,
+     93
+    ],
+    "anchor_logical": [
+     10.2,
+     46.5
+    ]
+   },
+   "dark": {
+    "file": "walker_kid_left_2_dark.png",
+    "size_2x": [
+     41,
+     95
+    ],
+    "size_logical": [
+     20.5,
+     47.5
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     20.5,
+     93
+    ],
+    "anchor_logical": [
+     10.2,
+     46.5
+    ]
+   }
+  },
+  "walker_kid_right_1": {
+   "light": {
+    "file": "walker_kid_right_1_light.png",
+    "size_2x": [
+     54,
+     95
+    ],
+    "size_logical": [
+     27.0,
+     47.5
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     27.0,
+     93
+    ],
+    "anchor_logical": [
+     13.5,
+     46.5
+    ]
+   },
+   "dark": {
+    "file": "walker_kid_right_1_dark.png",
+    "size_2x": [
+     54,
+     95
+    ],
+    "size_logical": [
+     27.0,
+     47.5
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     27.0,
+     93
+    ],
+    "anchor_logical": [
+     13.5,
+     46.5
+    ]
+   }
+  },
+  "walker_kid_right_2": {
+   "light": {
+    "file": "walker_kid_right_2_light.png",
+    "size_2x": [
+     41,
+     95
+    ],
+    "size_logical": [
+     20.5,
+     47.5
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     20.5,
+     93
+    ],
+    "anchor_logical": [
+     10.2,
+     46.5
+    ]
+   },
+   "dark": {
+    "file": "walker_kid_right_2_dark.png",
+    "size_2x": [
+     41,
+     95
+    ],
+    "size_logical": [
+     20.5,
+     47.5
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     20.5,
+     93
+    ],
+    "anchor_logical": [
+     10.2,
+     46.5
+    ]
+   }
+  },
+  "walker_santa_left_1": {
+   "light": {
+    "file": "walker_santa_left_1_light.png",
+    "size_2x": [
+     69,
+     119
+    ],
+    "size_logical": [
+     34.5,
+     59.5
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     34.5,
+     116
+    ],
+    "anchor_logical": [
+     17.2,
+     58.0
+    ]
+   },
+   "dark": {
+    "file": "walker_santa_left_1_dark.png",
+    "size_2x": [
+     69,
+     119
+    ],
+    "size_logical": [
+     34.5,
+     59.5
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     34.5,
+     116
+    ],
+    "anchor_logical": [
+     17.2,
+     58.0
+    ]
+   }
+  },
+  "walker_santa_left_2": {
+   "light": {
+    "file": "walker_santa_left_2_light.png",
+    "size_2x": [
+     57,
+     119
+    ],
+    "size_logical": [
+     28.5,
+     59.5
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     28.5,
+     116
+    ],
+    "anchor_logical": [
+     14.2,
+     58.0
+    ]
+   },
+   "dark": {
+    "file": "walker_santa_left_2_dark.png",
+    "size_2x": [
+     57,
+     119
+    ],
+    "size_logical": [
+     28.5,
+     59.5
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     28.5,
+     116
+    ],
+    "anchor_logical": [
+     14.2,
+     58.0
+    ]
+   }
+  },
+  "walker_santa_right_1": {
+   "light": {
+    "file": "walker_santa_right_1_light.png",
+    "size_2x": [
+     69,
+     119
+    ],
+    "size_logical": [
+     34.5,
+     59.5
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     34.5,
+     116
+    ],
+    "anchor_logical": [
+     17.2,
+     58.0
+    ]
+   },
+   "dark": {
+    "file": "walker_santa_right_1_dark.png",
+    "size_2x": [
+     69,
+     119
+    ],
+    "size_logical": [
+     34.5,
+     59.5
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     34.5,
+     116
+    ],
+    "anchor_logical": [
+     17.2,
+     58.0
+    ]
+   }
+  },
+  "walker_santa_right_2": {
+   "light": {
+    "file": "walker_santa_right_2_light.png",
+    "size_2x": [
+     57,
+     119
+    ],
+    "size_logical": [
+     28.5,
+     59.5
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     28.5,
+     116
+    ],
+    "anchor_logical": [
+     14.2,
+     58.0
+    ]
+   },
+   "dark": {
+    "file": "walker_santa_right_2_dark.png",
+    "size_2x": [
+     57,
+     119
+    ],
+    "size_logical": [
+     28.5,
+     59.5
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     28.5,
+     116
+    ],
+    "anchor_logical": [
+     14.2,
+     58.0
+    ]
+   }
+  },
+  "walker_scarf_left_1": {
+   "light": {
+    "file": "walker_scarf_left_1_light.png",
+    "size_2x": [
+     83,
+     119
+    ],
+    "size_logical": [
+     41.5,
+     59.5
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     41.5,
+     116
+    ],
+    "anchor_logical": [
+     20.8,
+     58.0
+    ]
+   },
+   "dark": {
+    "file": "walker_scarf_left_1_dark.png",
+    "size_2x": [
+     83,
+     120
+    ],
+    "size_logical": [
+     41.5,
+     60.0
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     41.5,
+     117
+    ],
+    "anchor_logical": [
+     20.8,
+     58.5
+    ]
+   }
+  },
+  "walker_scarf_left_2": {
+   "light": {
+    "file": "walker_scarf_left_2_light.png",
+    "size_2x": [
+     70,
+     119
+    ],
+    "size_logical": [
+     35.0,
+     59.5
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     35.0,
+     116
+    ],
+    "anchor_logical": [
+     17.5,
+     58.0
+    ]
+   },
+   "dark": {
+    "file": "walker_scarf_left_2_dark.png",
+    "size_2x": [
+     71,
+     120
+    ],
+    "size_logical": [
+     35.5,
+     60.0
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     35.5,
+     117
+    ],
+    "anchor_logical": [
+     17.8,
+     58.5
+    ]
+   }
+  },
+  "walker_scarf_right_1": {
+   "light": {
+    "file": "walker_scarf_right_1_light.png",
+    "size_2x": [
+     83,
+     119
+    ],
+    "size_logical": [
+     41.5,
+     59.5
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     41.5,
+     116
+    ],
+    "anchor_logical": [
+     20.8,
+     58.0
+    ]
+   },
+   "dark": {
+    "file": "walker_scarf_right_1_dark.png",
+    "size_2x": [
+     83,
+     120
+    ],
+    "size_logical": [
+     41.5,
+     60.0
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     41.5,
+     117
+    ],
+    "anchor_logical": [
+     20.8,
+     58.5
+    ]
+   }
+  },
+  "walker_scarf_right_2": {
+   "light": {
+    "file": "walker_scarf_right_2_light.png",
+    "size_2x": [
+     70,
+     119
+    ],
+    "size_logical": [
+     35.0,
+     59.5
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     35.0,
+     116
+    ],
+    "anchor_logical": [
+     17.5,
+     58.0
+    ]
+   },
+   "dark": {
+    "file": "walker_scarf_right_2_dark.png",
+    "size_2x": [
+     71,
+     120
+    ],
+    "size_logical": [
+     35.5,
+     60.0
+    ],
+    "anchor": "bottom-center",
+    "anchor_px_2x": [
+     35.5,
+     117
+    ],
+    "anchor_logical": [
+     17.8,
+     58.5
     ]
    }
   }

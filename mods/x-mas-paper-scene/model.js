@@ -33,8 +33,7 @@ export const PLUS_COLORS = {
 export const ACCENT_COLORS = { light: "#C8423B", dark: "#F2C46D" };
 export const KEYS_LINE = "←→ Select · ↩ Go to · Space Waiting · ⇧Space Unread · ⌫ Read · ? Keys · Esc";
 export const LEGEND_LINE = "←→ Select · ⌥←→ First/Last · ↩ Go to · Space Waiting · ⇧Space Unread · ⌫ Read · ⌘Z Undo · ? Hide · Esc";
-export const FADE_MS = 400, WALK_MS = 9000, STEP_MS = 500;
-export const WALK_FIRST_MS = 600, DEMO_STAND_MS = 2000;
+export const FADE_MS = 400, STEP_MS = 500;
 export const PUFF_TICK_MS = 200, PUFF_FLIP_MS = 34;
 
 const KEY_RE = /(?:^|[^A-Za-z0-9])([A-Za-z][A-Za-z0-9]{1,9}-\d{1,5})(?![0-9])/;
@@ -57,7 +56,7 @@ export function parseScan(output) {
 }
 
 // The model's state for one scan record, read or not. A finished turn is an unread result until
-// someone looked at the terminal; Herdr says that with idle, the scene's own marks with `viewed`.
+// it is marked read with ⌫, which `viewed` carries.
 export function stateOf(raw, viewed = false) {
   if (!raw) return null;
   if (raw.status === "waiting") return /permission|approv/i.test(String(raw.waitingFor ?? "")) ? "approve" : "needs";
@@ -160,7 +159,8 @@ export function buildSessions({ sessions, agents: agentList = [], terminals: ter
     if (terminal) claimed.add(terminal.address);
     const spoke = terminal ? agentList.find((a) => a.address === terminal.address) : null;
     const at = lastActivityOf(raw);
-    let state = stateOf(raw, seen.has(ackOf(raw, at)) || (spoke ? spoke.status === "idle" : false));
+    // Only ⌫ marks a result read; Herdr's idle (someone glanced at the pane) does not.
+    let state = stateOf(raw, seen.has(ackOf(raw, at)));
     if (state === null && spoke?.status === "blocked") state = "needs";
     const place = placeOf(raw.cwd);
     const pane = terminal ? paneList.find((p) => p.terminal === terminal.address) : null;
@@ -182,8 +182,10 @@ export function buildSessions({ sessions, agents: agentList = [], terminals: ter
   for (const a of agentList) {
     if (claimed.has(a.address) || a.app === "claude-code" || a.program?.key === "claude") continue;
     const status = String(a.status ?? "");
-    const ackKey = `agent:${a.address}+${a.seq ?? 0}`;
-    const state = status === "blocked" ? "needs" : status === "working" ? "working" : status === "done" && !seen.has(ackKey) ? "done" : "idle";
+    const doneKey = since[a.address]?.doneKey ?? null;
+    const ackKey = doneKey ?? `agent:${a.address}+${a.seq ?? 0}`;
+    const finished = status === "done" || (status === "idle" && doneKey != null);
+    const state = status === "blocked" ? "needs" : status === "working" ? "working" : finished && !seen.has(ackKey) ? "done" : "idle";
     const at = since[a.address]?.at ?? now;
     const place = placeOf(a.space_name);
     items.push({

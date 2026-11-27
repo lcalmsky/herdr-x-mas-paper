@@ -1,5 +1,5 @@
 // Tests for the x-mas paper scene: the five pictures a session can show, the block's coordinate
-// mapping, the studio canvas's seats, the state overlays and text, the walkers and the demo data.
+// mapping, the studio canvas's seats, the state overlays and text, the village and the demo data.
 // Run: node --import ./tests/stubs/register.mjs --test tests/
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -9,9 +9,14 @@ import {
   SLEEP_MS, DISPLAY_STATES, displayState, stateOf, clipText, textWidth, buildSessions, placesOf,
   sceneFrame, placeSessions, overlayState, plateSize, SCENE_H, LABEL_SIZE, LABEL_COLORS, LABEL_MAX_W, LABEL_PAD_X,
   LABEL_FONT, TEXT_FONT,
-  BUBBLE_INK, BUBBLE_BG, BUBBLE_SIZE, BUBBLE_PAD_X, ZZZ_SIZE, ZZZ_COLORS, PLUS_COLORS, FADE_MS, WALK_MS, STEP_MS, EDGE, PLATE_INK, PLATE_WEIGHT,
+  BUBBLE_INK, BUBBLE_BG, BUBBLE_SIZE, BUBBLE_PAD_X, ZZZ_SIZE, ZZZ_COLORS, PLUS_COLORS, FADE_MS, STEP_MS, EDGE, PLATE_INK, PLATE_WEIGHT,
   rollPuff, puffBox, puffSpread,
 } from "../mods/x-mas-paper-scene/model.js";
+import {
+  LOOKS, START_X, X_RANGE, FLOOR_Y, STEP, MAX_INSIDE, DOOR_HOUSES, UP_MS, INSIDE_MS,
+  DEMO_SEED, FADE_MS as VILLAGE_FADE_MS, SLED_MS, SLED_FADE_MS,
+  mulberry32, makeResidents, stepResident, stepVillage, makeHill, stepHill, nextWake, walking,
+} from "../mods/x-mas-paper-scene/village.js";
 import { SLOTS, OVERLAYS } from "../mods/x-mas-paper-scene/slots.js";
 import { sceneLayers } from "../mods/x-mas-paper-scene/scene.js";
 import { demoSessions, demoRead } from "../mods/x-mas-paper-scene/demo.js";
@@ -55,6 +60,30 @@ const planAt = (width, height = 320, items = demoItems()) => {
   const frame = sceneFrame(width, height);
   return { frame, ...placeSessions(items, frame) };
 };
+
+// The front doors main.js hands the village, straight from the studio's slots.
+const DOORS = Object.fromEntries(SLOTS.houses
+  .filter((house) => DOOR_HOUSES.includes(house.id))
+  .map((house) => [house.id, { x: house.door.x, y: house.door.bottom_y }]));
+
+test("a finished turn stays unread after Herdr calls it idle, until its ack key is read", () => {
+  const MIN = 60 * 1000;
+  const raw = { t: "s", pid: 7, sessionId: "s1", cwd: "/w/s1", status: "idle", startedAt: NOW - 90 * MIN, statusUpdatedAt: NOW - 40 * MIN, where: {} };
+  const terminals = [{ address: "t1", state: "live", cwd: "/w/s1", foreground: { pid: 7, cwd: "/w/s1" } }];
+  const agents = [{ address: "t1", status: "idle", app: "claude-code", seq: 3 }];
+  const [looked] = buildSessions({ sessions: [raw], agents, terminals, now: NOW });
+  assert.equal(looked.display, "unread", "a glance at the pane reads nothing");
+  const [read] = buildSessions({ sessions: [raw], agents, terminals, read: new Set([looked.ackKey]), now: NOW });
+  assert.equal(read.display, "sleeping");
+
+  const codex = { address: "t9", status: "idle", app: "codex", seq: 5 };
+  const since = { t9: { status: "idle", at: NOW - MIN, doneKey: "agent:t9+4" } };
+  const [kept] = buildSessions({ agents: [codex], since, now: NOW });
+  assert.equal(kept.display, "unread", "an agent's done that Herdr turned idle is still unread");
+  assert.equal(kept.ackKey, "agent:t9+4");
+  const [plain] = buildSessions({ agents: [codex], now: NOW });
+  assert.equal(plain.display, "other", "an agent that never finished a turn has nothing to read");
+});
 
 test("the block fits the 3112×320 canvas by its taller axis and crops the middle", () => {
   for (const width of [1176, 1192, 3112, 4000]) {
@@ -264,18 +293,141 @@ test("a puff is drawn bottom-centre on the chimney, starts small and rises away"
   assert.equal(next.nodes.has(`paper-puff-h${house.id}-0-3`), false, "so the old element is gone");
 });
 
-test("the walkers flicker with native opacity loops", () => {
-  const { seats } = planAt(3112);
-  const { nodes } = render({ width: 3112, seats });
+test("eight residents spread the street with four looks twice each", () => {
+  const residents = makeResidents(mulberry32(DEMO_SEED), NOW);
+  assert.equal(residents.length, 8);
+  assert.deepEqual(residents.map((r) => r.id), ["r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7"]);
+  assert.deepEqual(residents.map((r) => r.x), START_X);
+  for (const look of LOOKS) {
+    assert.equal(residents.filter((r) => r.look === look).length, 2, `${look} appears twice`);
+  }
+  for (const r of residents) {
+    assert.equal(r.scale, r.look === "kid" ? 0.8 : 1, `${r.id} scale`);
+    assert.ok(Number.isInteger(r.base) && r.base >= FLOOR_Y[0] && r.base <= FLOOR_Y[1], `${r.id} base ${r.base}`);
+    assert.equal(r.y, r.base);
+    assert.equal(r.phase, "stand");
+    assert.equal(r.door, null);
+    assert.equal(r.op, 1);
+    assert.ok(r.until > NOW && r.until <= NOW + 4000, `${r.id} takes its first stand inside 0.5..4 s`);
+  }
+  assert.ok(residents.filter((r) => r.x >= 960 && r.x <= 2152).length >= 3, "at least three start inside the narrow window");
+});
 
-  for (const id of ["paper-walker-a-right", "paper-walker-a-left", "paper-walker-b-right", "paper-walker-b-left"]) {
-    const group = nodes.get(id);
-    assert.equal(group.kids.length, 2, `${id} has two steps`);
+test("thirty minutes of the village stay on the street with at most two houses occupied", () => {
+  const rand = mulberry32(DEMO_SEED);
+  const residents = makeResidents(rand, NOW);
+  const hill = makeHill(rand, NOW);
+  const end = NOW + 30 * 60 * 1000;
+  let now = NOW;
+  let visits = 0;
+  let moves = 0;
+  for (let guard = 0; guard < 200000; guard += 1) {
+    const at = nextWake(residents, hill);
+    if (at > end) break;
+    now = Math.max(now + 1, at);
+    const before = residents.map((r) => ({ x: r.x, phase: r.phase, door: r.door }));
+    stepVillage(residents, DOORS, rand, now);
+    stepHill(hill, rand, now);
+    for (let i = 0; i < residents.length; i += 1) {
+      const r = residents[i];
+      const was = before[i];
+      assert.ok(r.x >= X_RANGE[0] && r.x <= X_RANGE[1], `${r.id} stays on the street: ${r.x}`);
+      if (r.phase === "up" && was.phase !== "up") visits += 1;
+      if (was.phase === "stand" && was.door == null && r.phase === "walk" && r.door == null) {
+        moves += 1;
+        const distance = Math.abs(r.x - was.x);
+        assert.ok(distance >= STEP[0] && distance <= STEP[1], `a street target sits ${distance} px away`);
+      }
+    }
+    const taken = residents.filter((r) => r.door != null).map((r) => r.door);
+    assert.equal(new Set(taken).size, taken.length, "one resident per door");
+    const inside = residents.filter((r) => r.door != null && ["fade", "inside", "fadein"].includes(r.phase)).length;
+    assert.ok(inside <= MAX_INSIDE, `${inside} residents inside`);
+  }
+  assert.ok(visits >= 1, `at least one door visit (${visits})`);
+  assert.ok(moves > 50, `the street keeps moving (${moves} walks)`);
+  assert.ok(hill.sled.n > 0, "the sled ran at least once in thirty minutes");
+});
+
+test("a door visit runs walk, up, fade, inside, fadein, down, stand", () => {
+  const [r] = makeResidents(mulberry32(DEMO_SEED), NOW);
+  r.speed = 30;
+  r.until = NOW;
+  const all = [r];
+  const doors = { 2: { x: 537, y: 290 }, 4: { x: 1029, y: 292 } };
+  const zero = () => 0;
+
+  stepResident(r, all, doors, zero, NOW);
+  assert.equal(r.phase, "walk");
+  assert.equal(r.door, 2, "the nearest free door");
+  assert.equal(r.x, 537, "walks to the door's x");
+  assert.equal(r.side, "right", "faces the way it moves");
+  assert.equal(r.moveMs, Math.round((157 / 30) * 1000), "the walk takes its own distance at its speed");
+  assert.equal(walking(r), true);
+
+  let at = r.until;
+  stepResident(r, all, doors, zero, at);
+  assert.equal(r.phase, "up");
+  assert.equal(r.y, 290, "climbs to the door's foot");
+  assert.equal(r.moveMs, UP_MS);
+  assert.equal(r.until, at + UP_MS);
+  assert.equal(walking(r), true);
+
+  at = r.until;
+  stepResident(r, all, doors, zero, at);
+  assert.equal(r.phase, "fade");
+  assert.equal(r.op, 0, "fades out on the doorstep");
+  assert.equal(r.moveMs, VILLAGE_FADE_MS);
+  assert.equal(walking(r), false);
+
+  at = r.until;
+  stepResident(r, all, doors, zero, at);
+  assert.equal(r.phase, "inside");
+  assert.ok(r.until >= at + INSIDE_MS[0] && r.until <= at + INSIDE_MS[1], "stays inside 6..15 s");
+
+  at = r.until;
+  stepResident(r, all, doors, zero, at);
+  assert.equal(r.phase, "fadein");
+  assert.equal(r.op, 1);
+  assert.equal(r.door, 2, "still holds the door until it is back on the street");
+  assert.equal(r.moveMs, VILLAGE_FADE_MS);
+
+  at = r.until;
+  stepResident(r, all, doors, zero, at);
+  assert.equal(r.phase, "down");
+  assert.equal(r.y, r.base, "comes back down to its own base");
+  assert.equal(r.moveMs, UP_MS);
+
+  at = r.until;
+  stepResident(r, all, doors, zero, at);
+  assert.equal(r.phase, "stand");
+  assert.equal(r.door, null, "frees the door");
+  assert.equal(r.moveMs, 0);
+  assert.ok(r.until >= at + 2000 && r.until <= at + 8000, "stands 2..8 s before the next target");
+});
+
+test("the villagers' feet loop only while they walk", () => {
+  const residents = [
+    residentOf({ id: "r0", phase: "walk", x: 620 }),
+    residentOf({ id: "r1", phase: "stand", y: 309, base: 309 }),
+    residentOf({ id: "r2", phase: "fade", op: 0 }),
+  ];
+  const { nodes } = render({ width: 3112, seats: planAt(3112).seats, residents });
+  for (const side of ["right", "left"]) {
+    const group = nodes.get(`paper-resident-r0-${side}`);
+    assert.equal(group.kids.length, 2, `${side} has two steps`);
     assert.deepEqual(group.kids.map((kid) => [loopOf(kid, "opacity").from, loopOf(kid, "opacity").to]),
-      [[50, -49], [-49, 50]], `${id} switches between its two steps`);
-    for (const kid of group.kids) {
-      assert.equal(loopOf(kid, "opacity").period, STEP_MS, `${id} steps every ${STEP_MS} ms`);
-      assert.equal(kid.calls.filter(([key, prop]) => key === "loop" && prop !== "opacity").length, 0, "only opacity moves");
+      [[50, -49], [-49, 50]], `${side} switches between its two steps`);
+    for (const kid of group.kids) assert.equal(loopOf(kid, "opacity").period, STEP_MS, `steps every ${STEP_MS} ms`);
+  }
+  assert.equal(callOf(nodes.get("paper-resident-r0-right"), "opacity"), 1, "the walk shows its right view");
+  assert.equal(callOf(nodes.get("paper-resident-r0-left"), "opacity"), 0, "and hides its left one");
+  for (const id of ["r1", "r2"]) {
+    for (const side of ["right", "left"]) {
+      const group = nodes.get(`paper-resident-${id}-${side}`);
+      assert.equal(loopOf(group.kids[0], "opacity"), undefined, `${id} ${side} does not loop`);
+      assert.equal(callOf(group.kids[0], "opacity"), 1, `${id} ${side} shows frame 1`);
+      assert.equal(callOf(group.kids[1], "opacity"), 0, `${id} ${side} hides frame 2`);
     }
   }
 });
@@ -300,7 +452,7 @@ test("the string lights and the three blink groups fade slowly over their own pe
   }
 });
 
-test("the lights, blink groups and brackets sit over the states and under the words", () => {
+test("the hill props, lights, blink groups, brackets and residents paint in the approved order", () => {
   const { seats } = planAt(3112);
   const { nodes } = render({ width: 3112, seats, selected: seats[0].house.id });
   const order = [...nodes.keys()];
@@ -308,15 +460,16 @@ test("the lights, blink groups and brackets sit over the states and under the wo
   const lastOf = (prefix) => order.reduce((at, id, i) => (id.startsWith(prefix) ? i : at), -1);
   assert.equal(order[0], "paper-scene-bg");
   assert.ok(lastOf("paper-scene-bg") < firstOf("paper-state-"), "the states paint over the background");
-  assert.ok(lastOf("paper-state-") < order.indexOf("paper-lights"), "the lights paint over every state");
+  assert.ok(lastOf("paper-state-") < order.indexOf("paper-hill"), "the hill props paint over every state");
+  assert.ok(order.indexOf("paper-hill") < order.indexOf("paper-lights"), "and under the lights");
   assert.ok(order.indexOf("paper-lights") < order.indexOf("paper-blink-1"));
   assert.ok(order.indexOf("paper-blink-1") < order.indexOf("paper-blink-2"));
   assert.ok(order.indexOf("paper-blink-2") < order.indexOf("paper-blink-3"));
   assert.ok(order.indexOf("paper-blink-3") < firstOf("paper-select-"), "the brackets paint over the blink groups");
-  assert.ok(lastOf("paper-select-") < order.indexOf("paper-walkers"), "the walkers paint over the brackets");
-  assert.ok(order.indexOf("paper-walkers") < firstOf("paper-plate-"));
-  assert.ok(order.indexOf("paper-walkers") < firstOf("paper-name-"));
-  assert.ok(order.indexOf("paper-walkers") < firstOf("paper-bubble-"));
+  assert.ok(lastOf("paper-select-") < order.indexOf("paper-residents"), "the residents paint over the brackets");
+  assert.ok(order.indexOf("paper-residents") < firstOf("paper-plate-"));
+  assert.ok(order.indexOf("paper-residents") < firstOf("paper-name-"));
+  assert.ok(order.indexOf("paper-residents") < firstOf("paper-bubble-"));
 });
 
 test("every house draws four selection brackets, and only the selected house's show", () => {
@@ -344,109 +497,138 @@ test("every house draws four selection brackets, and only the selected house's s
   assert.deepEqual(sizes.get("paper-select-h1-tl"), { w: 20, h: 20 }, "each bracket is 20×20 logical px");
 });
 
-test("the first frame shows A as walker_right_1 and B as walker_left_2", () => {
-  const { seats } = planAt(1192);
-  const { nodes } = render({ width: 1192, seats });
-  const shownFrame = (group) => group.kids.find((kid) => loopOf(kid, "opacity").from === 50)?.src;
-  assert.equal(shownFrame(nodes.get("paper-walker-a-right")), `${SRC}walker_right_1_light.png`);
-  assert.equal(shownFrame(nodes.get("paper-walker-b-left")), `${SRC}walker_left_2_light.png`);
-  assert.equal(callOf(nodes.get("paper-walker-a-right"), "opacity"), 1);
-  assert.equal(callOf(nodes.get("paper-walker-a-left"), "opacity"), 0);
-  assert.equal(callOf(nodes.get("paper-walker-b-left"), "opacity"), 1);
-  assert.equal(callOf(nodes.get("paper-walker-b-right"), "opacity"), 0);
-});
-
-test("a walker crosses the lane in one linear transition and turns at its ends", () => {
-  const { seats } = planAt(1192);
-  const first = render({ width: 1192, seats }).nodes;
-  const away = render({ width: 1192, seats, walkStep: 1 }).nodes;
-  const back = render({ width: 1192, seats, walkStep: 2 }).nodes;
-  const leftOf = (nodes, id) => callOf(nodes.get(id), "left");
-  const delta = (a, b, id) => leftOf(b, id) - leftOf(a, id);
-  const a = walkerId("a", 1192);
-  const b = walkerId("b", 1192);
-  for (const id of [a, b]) {
-    assert.equal(transitionOf(first.get(id)).duration, WALK_MS);
-    assert.equal(transitionOf(first.get(id)).easing, "linear");
-  }
-  assert.ok(Math.abs(delta(first, away, a) - 230) < 0.02, "A walks 230 px to the right end");
-  assert.ok(Math.abs(delta(first, away, b) + 220) < 0.02, "B walks 220 px to the left end");
-  assert.ok(Math.abs(delta(away, back, a) + 270) < 0.02, "then A crosses the 270 px lane back");
-  assert.ok(Math.abs(delta(away, back, b) - 270) < 0.02, "and B crosses it the other way");
-  assert.equal(callOf(away.get("paper-walker-a-right"), "opacity"), 1, "A faces right as it walks right");
-  assert.equal(callOf(away.get("paper-walker-b-left"), "opacity"), 1, "B faces left as it walks left");
-});
-
-test("a walker faces the way each step moves it", () => {
-  const { seats } = planAt(1176, 320);
-  const steps = [0, 1, 2].map((walkStep) => render({ width: 1176, height: 320, seats, walkStep }).nodes);
-  const wrapOf = (id) => walkerId(id, 1176, 320);
-  for (const [from, to] of [[0, 1], [1, 2], [2, 1]]) {
-    for (const id of ["a", "b"]) {
-      const moved = callOf(steps[to].get(wrapOf(id)), "left") - callOf(steps[from].get(wrapOf(id)), "left");
-      assert.notEqual(moved, 0, `step ${from}->${to}: walker ${id} changes its left`);
-      const faces = moved > 0 ? "right" : "left";
-      const away = faces === "right" ? "left" : "right";
-      assert.equal(callOf(steps[to].get(`paper-walker-${id}-${faces}`), "opacity"), 1,
-        `step ${from}->${to}: walker ${id} moves ${moved > 0 ? "right" : "left"} and faces ${faces}`);
-      assert.equal(callOf(steps[to].get(`paper-walker-${id}-${away}`), "opacity"), 0,
-        `step ${from}->${to}: walker ${id} hides its ${away} view`);
-    }
+test("the residents paint smallest base first, and each wrap carries its own step time", () => {
+  const bases = [318, 306, 312, 309, 316, 307, 314, 311];
+  const residents = bases.map((base, i) =>
+    residentOf({ id: `r${i}`, base, y: base, x: 400 + i * 300, phase: "walk", moveMs: 1000 + i }));
+  const { nodes } = render({ width: 3112, seats: planAt(3112).seats, residents });
+  const wraps = [...nodes.keys()].filter((id) => /^paper-resident-r\d+-\d+$/.test(id));
+  assert.equal(wraps.length, 8);
+  assert.deepEqual(wraps, ["r1", "r5", "r3", "r7", "r2", "r6", "r4", "r0"].map((id) => `paper-resident-${id}-1000`),
+    "smallest base first, so the larger base is drawn in front");
+  const byId = new Map(residents.map((r) => [r.id, r]));
+  for (const id of wraps) {
+    const resident = byId.get(id.split("-")[2]);
+    const wrap = nodes.get(id);
+    assert.equal(transitionOfProp(wrap, "left").duration, resident.moveMs, `${resident.id} left transition`);
+    assert.equal(transitionOfProp(wrap, "top").duration, resident.moveMs, `${resident.id} top transition`);
+    assert.equal(transitionOfProp(wrap, "left").easing, "linear");
+    assert.equal(transitionOfProp(wrap, "opacity").duration, VILLAGE_FADE_MS, "the door fade is the village's own");
   }
 });
 
-// The walkers' four sprites as one anchored box, the same union scene.js builds.
-const walkerUnion = (k) => {
-  const boxes = ["left", "right"].flatMap((side) => [1, 2].map((n) => {
-    const sprite = SLOTS.sprites[`walker_${side}_${n}`].light;
-    const [w, h] = sprite.size_logical;
-    const [ax, ay] = sprite.anchor_logical;
-    return { w: w * k, h: h * k, ax: ax * k, ay: ay * k };
-  }));
-  const left = Math.min(...boxes.map((b) => -b.ax));
-  const top = Math.min(...boxes.map((b) => -b.ay));
-  const right = Math.max(...boxes.map((b) => b.w - b.ax));
-  const bottom = Math.max(...boxes.map((b) => b.h - b.ay));
-  return { left, top, w: right - left, h: bottom - top };
-};
+test("a resident without its own walk pictures falls back to the shared walker sprites", () => {
+  const kid = residentOf({ id: "r1", look: "kid", scale: 0.8, x: 900, y: 306, base: 306 });
+  const seats = planAt(3112).seats;
+  const k = sceneFrame(3112, SCENE_H).k;
 
-test("a walker keeps its left across a crop, and a new scale redraws it instead of sliding it", () => {
-  const narrow = render({ width: 1176, seats: planAt(1176).seats });
-  const wide = render({ width: 3096, seats: planAt(3096).seats });
-  const short = render({ width: 1176, height: 240, seats: planAt(1176, 240).seats });
-  const poses = { a: 40, b: SLOTS.walker_lane.x[1] - 50 - SLOTS.walker_lane.x[0] };
-  for (const id of ["a", "b"]) {
-    // Width alone leaves k at 1, so the id and the own left both hold.
-    const same = walkerId(id, 1176);
-    assert.equal(walkerId(id, 3096), same, `${id} keeps its id while only the width changes`);
-    assert.equal(callOf(narrow.nodes.get(same), "left"), callOf(wide.nodes.get(same), "left"),
-      `${id} keeps its own left, so a wider crop never drags it across the lane`);
-    // A shorter block lowers k: the new id draws the walker at its pose at once, so changing the
-    // scale never runs the WALK_MS left transition.
-    const scaled = walkerId(id, 1176, 240);
-    assert.notEqual(scaled, same, `${id}'s id carries the scale`);
-    assert.equal(callOf(short.nodes.get(scaled), "left"), round2(poses[id] * 0.75),
-      `${id} lands on its pose at k 0.75`);
-  }
-  assert.notEqual(callOf(narrow.nodes.get("paper-walkers"), "left"), callOf(wide.nodes.get("paper-walkers"), "left"),
-    "the lane box is what follows the crop");
+  // With its own pictures the kid is drawn at their size; the 0.8 is not applied.
+  const own = render({ width: 3112, seats, residents: [kid] });
+  const ownRight = own.nodes.get("paper-resident-r1-right");
+  assert.equal(ownRight.kids[0].src, `${SRC}walker_kid_right_1_light.png`);
+  assert.equal(ownRight.kids[1].src, `${SRC}walker_kid_right_2_light.png`);
+  assert.equal(own.nodes.get("paper-resident-r1-left").kids[0].src, `${SRC}walker_kid_left_1_light.png`);
+  assert.equal(own.sizes.get("paper-resident-r1-right").w,
+    round2(unionOf([walkBox("kid", "right", 1, k), walkBox("kid", "right", 2, k)]).w),
+    "the kid draws at its own pictures' size");
+
+  const fallback = withoutSprites(["walker_kid_left_1", "walker_kid_left_2", "walker_kid_right_1", "walker_kid_right_2"],
+    () => render({ width: 3112, seats, residents: [kid] }));
+  const right = fallback.nodes.get("paper-resident-r1-right");
+  assert.equal(right.kids[0].src, `${SRC}walker_right_1_light.png`, "the right view is the shared walker's");
+  assert.equal(right.kids[1].src, `${SRC}walker_right_2_light.png`);
+  assert.equal(fallback.nodes.get("paper-resident-r1-left").kids[0].src, `${SRC}walker_left_1_light.png`);
+  assert.equal(fallback.sizes.get("paper-resident-r1-right").w,
+    round2(unionOf([spriteBox("walker_right_1", k, 0.8), spriteBox("walker_right_2", k, 0.8)]).w),
+    "the kid draws at 0.8 of the shared walker's width");
+  assert.equal(callOf(right, "opacity"), 1, "its own side shows");
+  assert.equal(callOf(fallback.nodes.get("paper-resident-r1-left"), "opacity"), 0, "the other side hides");
 });
 
-test("a walker's feet land on its pose's scene x through the lane box", () => {
-  const lane = SLOTS.walker_lane;
-  const poses = { a: lane.x[0] + 40, b: lane.x[1] - 50 };
+test("a resident's anchor sits on its scene (x, y) inside the one residents box", () => {
+  const resident = residentOf({ id: "r4", x: 700, y: 309, base: 309, side: "left" });
   for (const width of [1176, 3096]) {
     const { frame, seats } = planAt(width);
-    const { nodes } = render({ width, seats });
-    const box = walkerUnion(frame.k);
-    const boxLeft = callOf(nodes.get("paper-walkers"), "left");
-    for (const id of ["a", "b"]) {
-      // The anchor sits -box.left into the sprite box's own left edge.
-      const foot = boxLeft + callOf(nodes.get(walkerId(id, width)), "left") - box.left;
-      assert.ok(Math.abs(foot - (frame.left + poses[id] * frame.k)) < 0.02,
-        `${width}: walker ${id} stands at scene x ${poses[id]}`);
-    }
+    const { nodes } = render({ width, seats, residents: [resident] });
+    const box = walkerUnion(resident.look, frame.k, resident.scale);
+    const boxLeft = callOf(nodes.get("paper-residents"), "left");
+    const wrap = nodes.get(`paper-resident-r4-${Math.round(frame.k * 1000)}`);
+    const foot = boxLeft + callOf(wrap, "left") - box.left;
+    assert.ok(Math.abs(foot - (frame.left + 700 * frame.k)) < 0.02, `${width}: stands at scene x 700`);
+    const base = callOf(nodes.get("paper-residents"), "top") + callOf(wrap, "top") - box.top;
+    assert.ok(Math.abs(base - (frame.top + 309 * frame.k)) < 0.02, `${width}: feet on scene y 309`);
   }
+});
+
+test("the hill props wait for their pictures, then draw where the approved rules put them", () => {
+  const seats = planAt(3112).seats;
+  const k = sceneFrame(3112, SCENE_H).k;
+  const at = SLOTS.hill_props;
+
+  // The image studio's handed-over places.
+  assert.deepEqual(at.deer_a, { x: 1648, y: 205, side: "right" });
+  assert.deepEqual(at.deer_b, { x: 1680, y: 196, side: "left" });
+  assert.deepEqual(at.sled, { from: { x: 1392, y: 183 }, to: { x: 1482, y: 207 } });
+
+  const hillNames = ["snowman_1", "snowman_2", "gift_pile", "reindeer_up_left", "reindeer_up_right",
+    "reindeer_down_left", "reindeer_down_right", "sled_kid"];
+  const none = withoutSprites(hillNames, () => render({ width: 3112, seats }).nodes);
+  assert.equal(none.has("paper-hill"), false, "no hill layer while every hill picture is missing");
+
+  const { nodes, sizes } = render({ width: 3112, seats });
+  const layer = nodes.get("paper-hill");
+  assert.ok(layer, "the layer appears with its first picture");
+  assert.deepEqual([callOf(layer, "left"), callOf(layer, "top")], [0, 0], "it sits on the canvas box");
+
+  const snowman = nodes.get("paper-hill-snowman_1");
+  const snow = spriteBox("snowman_1", k);
+  assert.equal(snowman.src, `${SRC}snowman_1_light.png`);
+  assert.equal(callOf(snowman, "left"), round2(at.snowman_1.x * k - snow.ax));
+  assert.equal(callOf(snowman, "top"), round2(at.snowman_1.y * k - snow.ay));
+  assert.deepEqual(sizes.get("paper-hill-snowman_1"), { w: round2(snow.w), h: round2(snow.h) });
+  const gift = spriteBox("gift_pile", k);
+  assert.equal(callOf(nodes.get("paper-hill-gift_pile"), "left"), round2(at.gift_pile.x * k - gift.ax));
+
+  const calm = nodes.get("paper-hill-deer_a-up");
+  const deer = spriteBox("reindeer_up_right", k);
+  assert.equal(calm.src, `${SRC}reindeer_up_right_light.png`);
+  assert.equal(callOf(calm, "left"), round2(at.deer_a.x * k - deer.ax));
+  assert.equal(callOf(calm, "top"), round2(at.deer_a.y * k - deer.ay));
+  assert.equal(callOf(calm, "opacity"), 1, "a deer with its head up stands dimless");
+  assert.equal(callOf(nodes.get("paper-hill-deer_a-down"), "opacity"), 0);
+  assert.equal(nodes.get("paper-hill-deer_b-up").src, `${SRC}reindeer_up_left_light.png`);
+
+  const hill = makeHill(mulberry32(DEMO_SEED), NOW);
+  hill.deer[0].dipping = true;
+  const dipped = render({ width: 3112, seats, hill }).nodes;
+  assert.equal(callOf(dipped.get("paper-hill-deer_a-up"), "opacity"), 0, "the dip hides the raised head");
+  assert.equal(callOf(dipped.get("paper-hill-deer_a-down"), "opacity"), 1, "and shows the lowered one");
+});
+
+test("the sled draws at its start, then slides down the hill and fades out", () => {
+  const seats = planAt(3112).seats;
+  const k = sceneFrame(3112, SCENE_H).k;
+  const at = SLOTS.hill_props.sled;
+  const sled = spriteBox("sled_kid", k);
+  const hill = makeHill(mulberry32(DEMO_SEED), NOW);
+  hill.sled = { n: 3, phase: "start", until: NOW + SLED_MS + SLED_FADE_MS };
+  const start = render({ width: 3112, seats, hill }).nodes.get("paper-sled-3");
+  assert.ok(start, "the sled has its own element");
+  assert.equal(start.src, `${SRC}sled_kid_light.png`);
+  assert.equal(callOf(start, "left"), round2(at.from.x * k - sled.ax));
+  assert.equal(callOf(start, "top"), round2(at.from.y * k - sled.ay));
+  assert.equal(callOf(start, "opacity"), 1);
+
+  hill.sled.phase = "run";
+  const run = render({ width: 3112, seats, hill }).nodes.get("paper-sled-3");
+  assert.equal(callOf(run, "left"), round2(at.to.x * k - sled.ax));
+  assert.equal(callOf(run, "top"), round2(at.to.y * k - sled.ay));
+  assert.equal(callOf(run, "opacity"), 0);
+  assert.deepEqual(transitionOfProp(run, "left"), { duration: SLED_MS, easing: "linear" });
+  assert.deepEqual(transitionOfProp(run, "opacity"), { duration: SLED_FADE_MS, delay: SLED_MS });
+
+  hill.sled.phase = "wait";
+  assert.equal(render({ width: 3112, seats, hill }).nodes.has("paper-sled-3"), false, "nothing shows while it waits");
 });
 
 test("the door plate, name chips, bubble, z's and +N carry the approved sizes and inks", () => {
@@ -502,7 +684,7 @@ test("the name chip takes the system UI face and every other word a plain sans",
 
   globalThis.uiMethods = new Set();
   try {
-    sceneLayers({ width: 3112, height: SCENE_H, mode: "light", seats: planAt(3112).seats, plus: 0, walkStep: 0, visit() {} });
+    sceneLayers({ width: 3112, height: SCENE_H, mode: "light", seats: planAt(3112).seats, plus: 0, visit() {} });
     assert.ok(globalThis.uiMethods.has("font_family"), "the render asks gpui for a font");
   } finally {
     delete globalThis.uiMethods;
@@ -641,18 +823,65 @@ test("a one-line name is cut at a Korean word, never inside one", () => {
 
 // The scene's nodes as the stub records them. The colours are scene.js's own tables.
 const round2 = (n) => Math.round(n * 100) / 100;
-// The walker wrap's id carries k in thousandths, so a new scale is a new element.
-const walkerId = (id, width, height = SCENE_H) =>
-  `paper-walker-${id}-${Math.round(sceneFrame(width, height).k * 1000)}`;
 const callOf = (node, name) => node.calls.find(([key]) => key === name)?.[1];
 const loopOf = (node, name) => node.calls.find(([key, prop]) => key === "loop" && prop === name)?.[2];
 const transitionOf = (node) => node.calls.find(([key]) => key === "transition")?.[2];
-function render({ width, height = SCENE_H, mode = "light", seats, plus = 0, walkStep = 0, demo = false, selected = null, puffs = null, visit = () => {} }) {
+const transitionOfProp = (node, prop) => node.calls.find(([key, p]) => key === "transition" && p === prop)?.[2];
+
+// A resident with only the fields the render reads, for one test at a time.
+const residentOf = (over = {}) => ({
+  id: "r0", look: "santa", scale: 1, x: 500, base: 310, y: 310, side: "right", speed: 28,
+  phase: "stand", until: NOW, door: null, op: 1, moveMs: 0, ...over,
+});
+
+// A sprite's anchored box in screen px, from the slots' own sizes.
+const spriteBox = (name, k, scale = 1) => {
+  const sprite = SLOTS.sprites[name].light;
+  const [w, h] = sprite.size_logical;
+  const [ax, ay] = sprite.anchor_logical;
+  return { w: w * k * scale, h: h * k * scale, ax: ax * k * scale, ay: ay * k * scale };
+};
+
+// The box that holds anchored sprites on one point, in offsets from that point.
+const unionOf = (boxes) => {
+  const left = Math.min(...boxes.map((b) => -b.ax));
+  const top = Math.min(...boxes.map((b) => -b.ay));
+  const right = Math.max(...boxes.map((b) => b.w - b.ax));
+  const bottom = Math.max(...boxes.map((b) => b.h - b.ay));
+  return { left, top, w: right - left, h: bottom - top };
+};
+
+// The frame scene.js's residentSprite picks: a look's own picture at its size, or the shared
+// walker's scaled by the resident's own scale.
+const walkBox = (look, side, n, k, scale = 1) => {
+  const own = `walker_${look}_${side}_${n}`;
+  return SLOTS.sprites[own] ? spriteBox(own, k) : spriteBox(`walker_${side}_${n}`, k, scale);
+};
+
+const walkerUnion = (look, k, scale = 1) =>
+  unionOf(["left", "right"].flatMap((side) => [1, 2].map((n) => walkBox(look, side, n, k, scale))));
+
+// Run with some of the studio's pictures taken away, put back afterwards.
+const withoutSprites = (names, run) => {
+  const saved = names.filter((name) => name in SLOTS.sprites).map((name) => [name, SLOTS.sprites[name]]);
+  for (const [name] of saved) delete SLOTS.sprites[name];
+  try {
+    return run();
+  } finally {
+    for (const [name, record] of saved) SLOTS.sprites[name] = record;
+  }
+};
+
+function render({ width, height = SCENE_H, mode = "light", seats, plus = 0, demo = false, selected = null,
+  puffs = null, residents = null, hill = null, visit = () => {} }) {
   globalThis.uiNodes = new Map();
   globalThis.uiSizes = new Map();
   globalThis.uiHandlers = new Map();
   try {
-    sceneLayers({ width, height, mode, seats, plus, walkStep, demo, selected, puffs, visit });
+    sceneLayers({
+      width, height, mode, seats, plus, demo, selected, puffs, visit,
+      residents: residents ?? makeResidents(mulberry32(DEMO_SEED), NOW), hill,
+    });
     return {
       nodes: new Map(globalThis.uiNodes),
       sizes: new Map(globalThis.uiSizes),

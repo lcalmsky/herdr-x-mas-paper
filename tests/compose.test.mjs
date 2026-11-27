@@ -1,8 +1,8 @@
 // Tests for tools/preview/compose.py: it keeps the dark frame whose chimney shows three puffs and
-// whose tree keeps two walkers (the one whose puffs cover the most when several fit), keeps the
-// first light frame with the two walkers, writes the two picture sizes, and writes nothing when no
-// frame fits or an input is not a 6720x1800 shot. It also checks that render.sh refuses fewer than
-// five frames before it opens a window.
+// whose street keeps at least three residents (the one whose puffs cover the most when several fit),
+// keeps the first light frame with two residents in the tree's stretch of street, writes the two
+// picture sizes, and writes nothing when no frame fits or an input is not a 6720x1800 shot. It also
+// checks that render.sh refuses fewer than five frames before it opens a window.
 // Run: node --import ./tests/stubs/register.mjs --test tests/
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -16,10 +16,12 @@ const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const COMPOSE = join(ROOT, "tools/preview/compose.py");
 const RENDER = join(ROOT, "tools/preview/render.sh");
 
-// The fixture script draws two rectangles inside the walkers band and up to three grey circles in
-// the smoke box. Frame 4 of the dark set is the only one whose walkers sit in 2980..3230 and that
-// has all three circles; frame 2 of the light set is the first with the walkers in range. The area
-// set has two frames that fit, with small circles in frame 2 and large ones in frame 5.
+// The fixture script draws resident rectangles across the street band (1840..4400 for dark,
+// 2738..3762 for light) and up to three grey circles in the smoke box. Frame 4 of the dark set is
+// the only one with three residents on the street and all three circles; frame 2 of the light set is
+// the first with two residents by the tree. Frames 2 and 5 of the area set both fit, with small
+// circles in frame 2 and large ones in frame 5. Resident columns recur in at most two of six frames
+// so the median background stays the background.
 const FIXTURES = `
 import os, shutil, sys
 from PIL import Image, ImageDraw
@@ -29,22 +31,22 @@ DARK_RECT, LIGHT_RECT = (232, 238, 248), (32, 48, 79)
 SMOKE = (170, 175, 190)
 CIRCLES = [(2740, 160), (2780, 220), (2830, 280)]
 
-def frame(bg, rect, walkers, circles, radius=20):
+def frame(bg, rect, residents, circles, radius=20):
     im = Image.new("RGB", (6720, 1800), bg)
     d = ImageDraw.Draw(im)
-    for x in walkers:
+    for x in residents:
         d.rectangle((x, 520, x + 39, 619), fill=rect)
     for i in range(circles):
         cx, cy = CIRCLES[i]
         d.ellipse((cx - radius, cy - radius, cx + radius, cy + radius), fill=SMOKE)
     return im
 
-dark = [([2900, 3300], 1), ([2850, 3350], 0), ([3000], 1),
-        ([3000, 3150], 3), ([2950, 3250], 0), ([3050, 3300], 1)]
-light = [([2900, 3300], 0), ([3000, 3150], 0), ([2950, 3250], 0),
-         ([3050, 3300], 0), ([2850, 3350], 0), ([3000], 0)]
-area = [([2900, 3300], 0), ([3000, 3150], 3, 16), ([2850, 3350], 0),
-        ([2950, 3250], 0), ([3000, 3150], 3, 24), ([3050, 3300], 0)]
+dark = [([1880, 2000, 2120, 2240], 1), ([2360, 2480, 2600], 2), ([1700, 1780, 4500], 3),
+        ([1880, 2720, 2840, 2960], 3), ([3080, 3200], 3), ([3320, 3440, 3560, 3680, 3800], 1)]
+light = [([2650, 2000], 0), ([2760, 2880], 0), ([3000], 0),
+         ([3000, 3120, 3240, 3360], 0), ([2650, 3800], 0), ([3720, 3920], 0)]
+area = [([1880, 2000, 2120], 0), ([1880, 2000, 2120], 3, 16), ([2240, 2360], 3),
+        ([2480, 2600, 2720], 2), ([2480, 2600, 2720, 2840], 3, 24), ([2960, 3080, 3200], 3, 12)]
 main = os.path.join(out, "main")
 no_puff = os.path.join(out, "no-puff")
 small = os.path.join(out, "small")
@@ -58,8 +60,8 @@ for i, spec in enumerate(light, 1):
 for i, spec in enumerate(area, 1):
     frame(DARK_BG, DARK_RECT, *spec).save(os.path.join(area_dir, "dark_%d.png" % i))
     shutil.copyfile(os.path.join(main, "light_%d.png" % i), os.path.join(area_dir, "light_%d.png" % i))
-# A dark set where the only frame with the walkers in range shows a single puff.
-frame(DARK_BG, DARK_RECT, [3000, 3150], 1).save(os.path.join(no_puff, "dark_4.png"))
+# A dark set where the only frame with three residents on the street shows a single puff.
+frame(DARK_BG, DARK_RECT, [1880, 2720, 2840], 1).save(os.path.join(no_puff, "dark_4.png"))
 for i in (1, 2, 3, 5, 6):
     shutil.copyfile(os.path.join(main, "dark_%d.png" % i), os.path.join(no_puff, "dark_%d.png" % i))
 # A light set whose first frame is not a 6720x1800 shot.
@@ -88,7 +90,7 @@ function prepare(dir) {
   return dir;
 }
 
-test("compose.py keeps the puff frame with two walkers and the first light frame with two", () => {
+test("compose.py keeps the puff frame with three residents and the first light frame with two", () => {
   const dir = mkdtempSync(join(tmpdir(), "xmas-compose-"));
   try {
     prepare(dir);
@@ -97,8 +99,8 @@ test("compose.py keeps the puff frame with two walkers and the first light frame
     const run = uv([COMPOSE, "--out-hero", hero, "--out-layout", layout,
       "--dark", ...frames(join(dir, "main"), "dark"), "--light", ...frames(join(dir, "main"), "light")]);
     assert.equal(run.status, 0, run.stderr);
-    assert.match(run.stderr, /dark_4\.png/, "the dark frame with the puffs and both walkers");
-    assert.match(run.stderr, /light_2\.png/, "the first light frame with both walkers");
+    assert.match(run.stderr, /dark_4\.png/, "the dark frame with the puffs and three residents");
+    assert.match(run.stderr, /light_2\.png/, "the first light frame with two residents by the tree");
     assert.deepEqual(pngSize(hero), [2560, 1600], "the gallery picture is 2560x1600");
     assert.deepEqual(pngSize(layout), [640, 400], "the layout picture is 640x400");
   } finally {
@@ -115,7 +117,8 @@ test("compose.py writes nothing when no dark frame keeps three puffs", () => {
     const run = uv([COMPOSE, "--out-hero", hero, "--out-layout", layout,
       "--dark", ...frames(join(dir, "no-puff"), "dark"), "--light", ...frames(join(dir, "main"), "light")]);
     assert.equal(run.status, 1, run.stderr);
-    assert.match(run.stderr, /dark/, "the failure names the theme");
+    assert.match(run.stderr, /no dark frame keeps three residents and three puffs/,
+      "the failure names the dark rule");
     assert.equal(existsSync(hero), false, "no gallery picture is written");
     assert.equal(existsSync(layout), false, "no layout picture is written");
   } finally {

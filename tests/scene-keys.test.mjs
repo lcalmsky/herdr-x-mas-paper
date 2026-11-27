@@ -13,6 +13,7 @@ import {
   stepSeat, waitTargets, cycle, searchSeat, eraseWord, visitHistory, stepHistory, pressSpec, keySeats,
 } from "../mods/x-mas-paper-scene/keys.js";
 import { SLOTS } from "../mods/x-mas-paper-scene/slots.js";
+import { nextWake } from "../mods/x-mas-paper-scene/village.js";
 import { typeJamo } from "../mods/x-mas-paper-scene/hangul.js";
 
 const NOW = Date.now();
@@ -259,11 +260,16 @@ test("⇧Space visits unread results oldest first, and Space says when nothing w
   assert.deepEqual(runList().at(-1), ["pane.focus", { pane: "p-d" }], "the oldest unread result");
   press(view, "space", { shift: true });
   assert.deepEqual(runList().at(-1), ["pane.focus", { pane: "p-b" }]);
-  // The first visit read that result, so only a's unread is left.
   press(view, "space", { shift: true });
   assert.deepEqual(runList().at(-1), ["pane.focus", { pane: "p-a" }]);
+  // A visit reads nothing, so the round comes back to the oldest.
   press(view, "space", { shift: true });
-  assert.equal(view.noticeText(), "No unread result");
+  assert.deepEqual(runList().at(-1), ["pane.focus", { pane: "p-d" }], "visited results stay in the round");
+  assert.equal(view.read.size, 0, "only ⌫ marks a result read");
+
+  const none = sceneOf([{ id: "a" }]);
+  press(none.view, "space", { shift: true });
+  assert.equal(none.view.noticeText(), "No unread result");
 
   const working = sceneOf([{ id: "a" }]);
   working.view.press({ key: "space" }, working.cx);
@@ -660,6 +666,116 @@ test("a house that starts working re-rolls each cell's first-round offset", () =
     view.stepPuffs(fakeCx);
     assert.deepEqual(cells.map((cell) => cell.phase), ["start", "start", "start"],
       "all three start within one round's length plus a tick");
+  } finally {
+    Date.now = realNow;
+  }
+});
+
+test("a Herdr agent's finished turn keeps its key through idle and read, and a new turn takes a new key", () => {
+  const { view, cx } = sceneOf([{ id: "a" }]);
+  const agent = { address: "t-x", app: "codex", title: "Agent", status: "done", seq: 1 };
+  globalThis.herdrState.agents = [agent];
+  const item = () => view.items.find((entry) => entry.id === "agent:t-x");
+  const key1 = "agent:t-x+1";
+
+  view.refresh(NOW);
+  assert.equal(item().display, "unread");
+  assert.equal(item().ackKey, key1);
+  assert.equal(view.since["t-x"].at, NOW, "the done time is this refresh's time");
+
+  agent.status = "idle";
+  view.refresh(NOW + 5000);
+  assert.equal(item().display, "unread", "Herdr's idle after a glance leaves the result unread");
+  assert.equal(item().ackKey, key1, "the finished turn keeps its key");
+  assert.equal(view.since["t-x"].at, NOW, "and the done time it counted from");
+
+  view.sel = "agent:t-x";
+  press(view, "backspace");
+  assert.ok(view.read.has(key1), "⌫ marks the finished turn read");
+  assert.equal(item().display, "other");
+
+  agent.status = "working";
+  view.refresh(NOW + 10000);
+  assert.equal(item().display, "working");
+  agent.status = "done";
+  agent.seq = 2;
+  view.refresh(NOW + 20000);
+  assert.equal(item().display, "unread", "the new finished turn is unread");
+  assert.equal(item().ackKey, "agent:t-x+2");
+  assert.notEqual(item().ackKey, key1, "a new turn takes a key of its own");
+
+  view.read.add("agent:t-x+2");
+  view.refresh(NOW + 25000);
+  assert.equal(item().display, "other");
+  agent.seq = 3;
+  view.refresh(NOW + 30000);
+  assert.equal(item().ackKey, "agent:t-x+3", "a seq bump with the status still done re-keys the result");
+  assert.equal(item().display, "unread", "so the new turn is not hidden by the old turn's read mark");
+});
+
+test("a scanned Claude session stays unread while its Herdr agent says idle", () => {
+  const { view } = sceneOf([{ id: "a", status: "idle", at: NOW - 10 * MIN }]);
+  const item = () => view.items.find((entry) => entry.id === "a");
+  assert.equal(item().display, "unread");
+  const ackKey = item().ackKey;
+  globalThis.herdrState.agents = [{ address: "t-a", app: "claude-code", status: "idle", seq: 4 }];
+  view.refresh(NOW + 5000);
+  assert.equal(item().display, "unread", "Herdr's idle does not read the scan's finished turn");
+  assert.equal(item().ackKey, ackKey);
+  assert.equal(view.read.size, 0);
+});
+
+test("the village timer steps due residents, notifies only on change, and reschedules at max(50, next wake)", () => {
+  const { view, timers } = sceneOf([{ id: "a" }]);
+  assert.equal(timers.length, 1, "construction schedules one village timer");
+  const realNow = Date.now;
+  const clock = { now: realNow() };
+  const laterTimers = [];
+  let notified = 0;
+  const later = {
+    notify: () => { notified += 1; },
+    timer: { after: (ms, fn) => laterTimers.push({ ms, fn }) },
+  };
+  const fire = () => { const timer = laterTimers.shift(); timer.fn(later); };
+  try {
+    Date.now = () => clock.now;
+    for (const r of view.residents) r.until = clock.now + 10 * 1000;
+    view.hill.nextDipAt = clock.now + 60 * 1000;
+    for (const deer of view.hill.deer) deer.dipping = false;
+    view.hill.sled = { n: 0, phase: "wait", until: clock.now + 30 * 1000 };
+
+    timers[0].fn(later);
+    assert.equal(notified, 0, "nothing due, so no repaint");
+    assert.equal(laterTimers.length, 1);
+    assert.equal(laterTimers[0].ms, 10 * 1000, "the timer sleeps to the next wake");
+
+    const walker = view.residents[0];
+    walker.until = clock.now - 1;
+    notified = 0;
+    fire();
+    assert.equal(walker.phase, "walk", "the resident whose stand ended steps");
+    assert.equal(notified, 1, "a changed village repaints once");
+    assert.equal(laterTimers.length, 1);
+    assert.equal(laterTimers[0].ms, Math.max(50, nextWake(view.residents, view.hill) - clock.now),
+      "the next sleep is recomputed from the new wake");
+
+    for (const r of view.residents) r.until = clock.now - 1;
+    view.scheduleVillage(later);
+    assert.equal(laterTimers.at(-1).ms, 50, "a wake already past sleeps the 50 ms floor");
+
+    for (const r of view.residents) r.until = clock.now + 60 * 1000;
+    view.hill.sled = { n: 0, phase: "wait", until: clock.now - 1 };
+    laterTimers.length = 0;
+    view.scheduleVillage(later);
+    assert.equal(laterTimers.at(-1).ms, 50);
+    laterTimers.pop().fn(later);
+    assert.equal(view.hill.sled.phase, "start", "the sled leaves its start");
+    assert.equal(notified, 2, "the sled's start repaints");
+    const flip = laterTimers.find((timer) => timer.ms === PUFF_FLIP_MS);
+    assert.ok(flip, "a second timer waits PUFF_FLIP_MS");
+    assert.equal(laterTimers.filter((timer) => timer !== flip).length, 1, "and the village keeps its own chain");
+    flip.fn(later);
+    assert.equal(view.hill.sled.phase, "run", "the flip moves the sled to its run");
   } finally {
     Date.now = realNow;
   }

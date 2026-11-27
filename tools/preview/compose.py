@@ -1,15 +1,18 @@
 """Picks the gallery frames and composes the two preview pictures.
 
 Takes several frames per theme, keeps the dark frame whose chimney shows three puffs and whose
-tree keeps two walkers, and the first light frame that keeps two walkers. The gallery picture is a
-poster of that dark frame: its village band sits large on a night sky, with a terminal card and a
-rail card below. The layout picture cuts the light frame around the tree and the notes house.
+street keeps at least three residents (the one whose puffs cover the most when several fit, ties
+going to the frame with more residents), and the first light frame whose stretch of street under
+the tree keeps two residents. The gallery picture is a poster of that dark frame: its village band
+sits large on a night sky, with a terminal card and a rail card below. The layout picture cuts the
+light frame around the tree and the notes house.
 
 Every coordinate below is in the 6720x1800 shot, which is the 3360x900 window at 2x. If the demo
-scene's placement changes, re-fit the village band (all five houses, docs through api), the terminal
-band (the prompt line down to the "3 of 3 routes pass" line), the rail band (the north-pole and
-cocoa-house groups, cut on a group boundary) and the 640 band (the tree, the notes house and its
-Your turn bubble).
+scene's placement changes, re-fit the village band (all five houses, docs through api), the street
+band (the front snow path the residents walk, across 1840..4400), the light-theme share of it under
+the tree (2738..3762), the terminal band (the prompt line down to the "3 of 3 routes pass" line),
+the rail band (the north-pole and cocoa-house groups, cut on a group boundary) and the 640 band
+(the tree, the notes house and its Your turn bubble).
 """
 import argparse
 import random
@@ -17,7 +20,8 @@ import sys
 from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 SHOT = (6720, 1800)
-LANE = (2850, 500, 3600, 660)      # the walkers band under the tree
+STREET = (1840, 500, 4400, 660)        # the front snow path the residents walk
+LIGHT_STREET = (2738, 500, 3762, 660)  # the stretch of that path under the tree
 BOX = (2700, 120, 2860, 320)       # the chimney's smoke
 
 GALLERY = (2560, 1600)
@@ -56,9 +60,9 @@ def load(paths, theme):
     return images
 
 
-def lane_background(images):
-    width, height = LANE[2] - LANE[0], LANE[3] - LANE[1]
-    rows = [image.crop(LANE).convert("L").tobytes() for image in images]
+def street_background(images, band):
+    width, height = band[2] - band[0], band[3] - band[1]
+    rows = [image.crop(band).convert("L").tobytes() for image in images]
     count = len(rows)
     mid = count // 2
     median = bytearray(width * height)
@@ -68,9 +72,9 @@ def lane_background(images):
     return median
 
 
-def walkers(image, median):
-    width, height = LANE[2] - LANE[0], LANE[3] - LANE[1]
-    data = image.crop(LANE).convert("L").tobytes()
+def residents(image, median, band):
+    width, height = band[2] - band[0], band[3] - band[1]
+    data = image.crop(band).convert("L").tobytes()
     columns = [0] * width
     for y in range(height):
         offset = y * width
@@ -81,7 +85,7 @@ def walkers(image, median):
     for x, hits in enumerate(columns):
         if hits <= 8:
             continue
-        at = LANE[0] + x
+        at = band[0] + x
         if blobs and at - blobs[-1][1] <= 12:
             blobs[-1][1] = at
         else:
@@ -120,38 +124,34 @@ def smoke(image):
     return areas
 
 
-def two_walkers(blobs):
-    return len(blobs) == 2 and all(start >= 2980 and end <= 3230 for start, end in blobs)
-
-
 def pick_dark(paths, images):
-    median = lane_background(images)
+    median = street_background(images, STREET)
     measured = []
     passing = []
     for path, image in zip(paths, images):
-        blobs = walkers(image, median)
+        blobs = residents(image, median, STREET)
         areas = smoke(image)
         measured.append((path, blobs, areas))
-        if two_walkers(blobs) and len(areas) >= 3:
-            passing.append((sum(areas), image, path))
+        if len(blobs) >= 3 and len(areas) >= 3:
+            passing.append((sum(areas), len(blobs), image, path))
     if not passing:
         for path, blobs, areas in measured:
-            sys.stderr.write(f"compose.py: dark {path}: walkers {blobs}, smoke {areas}\n")
+            sys.stderr.write(f"compose.py: dark {path}: residents {blobs}, smoke {areas}\n")
         return None
-    best = max(passing, key=lambda item: item[0])
-    return best[1], best[2]
+    best = max(passing, key=lambda item: (item[0], item[1]))
+    return best[2], best[3]
 
 
 def pick_light(paths, images):
-    median = lane_background(images)
+    median = street_background(images, LIGHT_STREET)
     measured = []
     for path, image in zip(paths, images):
-        blobs = walkers(image, median)
+        blobs = residents(image, median, LIGHT_STREET)
         measured.append((path, blobs))
-        if two_walkers(blobs):
+        if len(blobs) >= 2:
             return image, path
     for path, blobs in measured:
-        sys.stderr.write(f"compose.py: light {path}: walkers {blobs}\n")
+        sys.stderr.write(f"compose.py: light {path}: residents {blobs}\n")
     return None
 
 
@@ -279,11 +279,11 @@ def main():
 
     dark = pick_dark(dark_paths, dark_images)
     if dark is None:
-        sys.stderr.write("compose.py: no dark frame keeps both walkers and three puffs\n")
+        sys.stderr.write("compose.py: no dark frame keeps three residents and three puffs\n")
         sys.exit(1)
     light = pick_light(light_paths, light_images)
     if light is None:
-        sys.stderr.write("compose.py: no light frame keeps both walkers\n")
+        sys.stderr.write("compose.py: no light frame keeps two residents by the tree\n")
         sys.exit(1)
 
     sys.stderr.write(f"compose.py: dark {dark[1]}\n")
