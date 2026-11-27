@@ -1,270 +1,222 @@
-// The village's picture: the paper background, the big tree, a house and villager per session,
-// and the signs the person reads. Nothing here animates with a timer; every motion is a native
-// loop or transition. Positions arrive in logical px (scene height 240) and are scaled here.
+// The village picture: one painted scene, a cropped state overlay and a strip of text per seated
+// house, and the two walkers' sprites. Every position is the studio canvas's logical px
+// (3112×320) mapped onto the block; motion is native transitions and loops only.
 import { div, image } from "gpui-kit";
-import { ASSETS } from "./manifest.js";
+import { SLOTS, OVERLAYS } from "./slots.js";
 import {
-  ART_FILE, ART_W, TREE_H, TREE_Y, TREE_WALK_GAP, HOUSE_H, HOUSE_GIFT_X, HOUSE_VILLAGER_X, HOUSE_BELL_X,
-  CHIMNEY_X, CHIMNEY_Y, SMOKE_H, SMOKE_RISE, VILLAGER_H, GIFT_H, STOCKING_H, SNOWMAN_H, SNOWMAN_Y, SNOWMAN_X,
-  NUMBER_SIZE, NUMBER_H, NUMBER_RADIUS, NUMBER_PAD, NUMBER_AT, NAME_SIZE, LABEL_MIN_W, NAME_TOP,
-  ASK_SIZE, ASK_H, ASK_PAD, ASK_RADIUS, ASK_MAX_W, ASK_GAP, ASK_MIN_W, ASK_LIFT, ASK_MARGIN, ASK_CLEAR,
-  OVERFLOW_Y, OVERFLOW_W, OVERFLOW_H, ZZZ_SIZE, LAND_BAND, LAND_COLORS, FADE_MS, SMOKE_MS, WALK_MS, ZZZ_MS, BELL_MS,
-  SLEIGH_H, SLEIGH_Y, SLEIGH_MS, GARLAND_H, GARLAND_EAVE, FLAKE_BOTTOM, FLAKES, STARS, ZZZ_IMG_H,
-  houseOf, propOf, extraOf, clipText, layoutBubbles,
+  clipText, overlayState, plateSize, sceneFrame, textWidth,
+  LABEL_SIZE, LABEL_WEIGHT, LABEL_PAD_Y, LABEL_PAD_X, LABEL_RADIUS, LABEL_MAX_W, LABEL_BOX, LABEL_COLORS,
+  LABEL_FONT, TEXT_FONT,
+  PLATE_WEIGHT, PLATE_BOX, PLATE_INK,
+  BUBBLE_TEXT, BUBBLE_SIZE, BUBBLE_WEIGHT, BUBBLE_PAD_Y, BUBBLE_PAD_X, BUBBLE_RADIUS, BUBBLE_TAIL_RADIUS,
+  BUBBLE_BOX, BUBBLE_BG, BUBBLE_INK,
+  ZZZ_TEXT, ZZZ_SIZE, ZZZ_WEIGHT, ZZZ_BOX, ZZZ_COLORS,
+  PLUS_SIZE, PLUS_WEIGHT, PLUS_PAD_Y, PLUS_PAD_X, PLUS_RADIUS, PLUS_TOP, PLUS_RIGHT, PLUS_COLORS,
+  EDGE, FADE_MS, SMOKE_MS, WALK_MS, STEP_MS,
 } from "./model.js";
 
 const ART = "mods/x-mas-paper-scene/art/";
+const STATES = ["working", "turn", "sleep"];
+const SIDES = ["right", "left"];
+const WALKERS = [
+  { id: "a", firstFrame: 1 },
+  { id: "b", firstFrame: 2 },
+];
 const r2 = (n) => Math.round(n * 100) / 100;
-const sidOf = (unit) => String(unit.id).replace(/[^\w-]/g, "_");
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const sidOf = (id) => String(id).replace(/[^\w-]/g, "_");
 
-function box(name, h) {
-  const a = ASSETS[name];
-  const ratio = h / a.size[1];
-  return { file: ART + a.file, w: r2(a.size[0] * ratio), h: r2(h), ax: r2(a.anchor[0] * ratio), ay: r2(a.anchor[1] * ratio) };
+// A sprite's box in screen px at this frame's scale.
+function spriteOf(name, mode, k) {
+  const sprite = SLOTS.sprites[name][mode];
+  const [w, h] = sprite.size_logical;
+  const [ax, ay] = sprite.anchor_logical;
+  return { file: sprite.file, w: w * k, h: h * k, ax: ax * k, ay: ay * k };
 }
 
-// A sprite placed by its anchor, which the manifest puts at the base's centre.
-function sprite(name, x, base, h) {
-  const b = box(name, h);
-  return { el: image(b.file).absolute().left(r2(x - b.ax)).top(r2(base - b.ay)).w(b.w).h(b.h), b, top: base - b.ay };
+// The box that holds sprites anchored on one point, in offsets from that point.
+function unionOf(boxes) {
+  const left = Math.min(...boxes.map((b) => -b.ax));
+  const top = Math.min(...boxes.map((b) => -b.ay));
+  const right = Math.max(...boxes.map((b) => b.w - b.ax));
+  const bottom = Math.max(...boxes.map((b) => b.h - b.ay));
+  return { left, top, w: right - left, h: bottom - top };
 }
 
-const fade = (el, on) => el.opacity(on ? 1 : 0).transition("opacity", { duration: FADE_MS });
+// A sprite inside its group: the anchor relative to the group's top-left.
+const imageIn = (box, group) => image(ART + box.file).absolute()
+  .left(r2(-box.ax - group.left)).top(r2(-box.ay - group.top)).w(r2(box.w)).h(r2(box.h));
 
-// The sky above the far hill: the dark tone's stars, the paper snow in both tones, and the sleigh.
-// The sleigh keeps its whole height above every bubble the scene placed, as the brief asks.
-function skyNodes(o, bubbles) {
-  const k = o.k, W = o.width, out = [];
-  if (o.tone === "dark") {
-    STARS.forEach((star, i) => {
-      const b = box(extraOf("star", o.tone), star.h * k);
-      const el = image(b.file).id(`paper-star-${i}`).absolute().left(r2(star.x * W - b.ax)).top(r2(star.y * k)).w(b.w).h(b.h);
-      if (star.ms) el.loop("opacity", { from: 1, to: 0.3, period: star.ms, easing: "ease-in-out" });
-      out.push(el);
-    });
-  }
-  FLAKES.forEach((flake, i) => {
-    const b = box(extraOf("snowflake", o.tone), flake.h * k);
-    out.push(image(b.file).id(`paper-flake-${i}`).absolute()
-      .left(r2(flake.x * W - b.ax)).top(r2(flake.y * k)).w(b.w).h(b.h)
-      .opacity(o.tone === "dark" ? 1 : 0.9)
-      .loop("top", { from: r2(flake.y * k), to: r2(FLAKE_BOTTOM * k), period: flake.ms, easing: "linear" }));
-  });
-  const sleigh = box(extraOf("sleigh", o.tone), SLEIGH_H * k);
-  let top = SLEIGH_Y * k;
-  for (const bubble of bubbles) if (bubble.top < top + sleigh.h && bubble.bottom > top) top = Math.min(top, bubble.top - 2 - sleigh.h);
-  out.push(image(sleigh.file).id("paper-sleigh").absolute()
-    .left(r2(o.sleigh ? -sleigh.w - 4 : W + 4)).top(r2(Math.max(2, top))).w(sleigh.w).h(sleigh.h)
-    .transition("left", { duration: o.sleigh ? SLEIGH_MS : 0, easing: "linear" }));
-  return out;
-}
-
-// A garland hangs from the eaves of each neighbouring pair of front houses. The one pair whose
-// gap holds the big tree gets none, and the back row has no garlands.
-function garlandNodes(front, o) {
-  const sorted = [...front].sort((a, b) => a.x - b.x);
-  const out = [];
-  for (let j = 1; j < sorted.length; j += 1) {
-    const left = sorted[j - 1], right = sorted[j];
-    if (left.x * o.k < o.width / 2 && right.x * o.k > o.width / 2) continue;
-    const lh = box(houseOf(left.id, o.tone), HOUSE_H * left.scale * o.k);
-    const rh = box(houseOf(right.id, o.tone), HOUSE_H * right.scale * o.k);
-    const x0 = r2(left.x * o.k + lh.w / 2), x1 = r2(right.x * o.k - rh.w / 2);
-    if (x1 - x0 <= 0) continue;
-    const b = box(extraOf("garland", o.tone), GARLAND_H * o.k);
-    const eave = r2(left.y * o.k - lh.ay + GARLAND_EAVE * lh.h);
-    out.push(image(b.file).id(`paper-garland-${j}`).absolute().left(x0).top(eave).w(r2(x1 - x0)).h(b.h));
-  }
-  return out;
-}
-
-// One session's house: base, the lit/open overlays and the advent number over its door.
-function unitBase(unit, o) {
-  const s = unit.scale * o.k;
-  const x = unit.x * o.k, base = unit.y * o.k;
-  const houseName = houseOf(unit.id, o.tone);
-  const house = box(houseName, HOUSE_H * s);
-  const left = r2(x - house.ax), top = r2(base - house.ay);
-  const overlays = ASSETS[houseName].overlays ?? {};
-  const lit = unit.display === "working" || unit.display === "unread" || unit.display === "other";
-  const open = unit.display === "turn";
-  const numberTop = r2(base - HOUSE_H * s * NUMBER_AT - (NUMBER_H * s) / 2 - top);
-  const group = div().id(`paper-house-${sidOf(unit)}`).absolute().left(left).top(top).w(house.w).h(house.h)
-    .cursor_pointer().on_click(() => o.visit?.(unit))
-    .child(image(house.file).absolute().left(0).top(0).w(house.w).h(house.h));
-  if (overlays.lit) group.child(fade(image(ART + overlays.lit).absolute().left(0).top(0).w(house.w).h(house.h), lit));
-  if (overlays.open) group.child(fade(image(ART + overlays.open).absolute().left(0).top(0).w(house.w).h(house.h), open));
-  group.child(div().id(`paper-number-${sidOf(unit)}`).absolute().left(0).top(numberTop).w(house.w).h(r2(NUMBER_H * s))
-    .flex().items_center().justify_center()
-    .child(div().id(`paper-number-plate-${sidOf(unit)}`).rounded(r2(NUMBER_RADIUS * s)).bg(o.numberPlate).px(r2(NUMBER_PAD * s)).py(r2(1 * s))
-      .text_size(r2(NUMBER_SIZE * s)).font_family("Nunito").font_bold()
-      .text_color(o.accent).child(String(unit.number))));
-  return { node: group, house, top, base };
-}
-
-// The props one state hangs on a house: smoke, a gift, a stocking, the villagers and the z's.
-function unitSymbols(unit, o, house) {
-  const s = unit.scale * o.k;
-  const x = unit.x * o.k, base = unit.y * o.k;
-  const working = unit.display === "working", turn = unit.display === "turn";
-  const unread = unit.display === "unread", sleeping = unit.display === "sleeping", other = unit.display === "other";
-  const chimneyX = r2(x + house.house.w * CHIMNEY_X);
-  const chimneyY = r2(house.top + CHIMNEY_Y * s);
-  const out = [];
-
-  const smokeName = propOf("smoke", o.tone);
-  const smokeBox = box(smokeName, SMOKE_H * s);
-  const smokeTop = chimneyY - smokeBox.ay;
-  const puff = (dx, dy, from, period) => image(smokeBox.file).absolute()
-    .left(r2(chimneyX - smokeBox.ax + dx)).top(r2(smokeTop + dy)).w(smokeBox.w).h(smokeBox.h)
-    .loop("opacity", { from, to: 0, period, easing: "linear" })
-    .loop("top", { from: r2(smokeTop + dy), to: r2(smokeTop + dy - SMOKE_RISE * s), period, easing: "linear" });
-  out.push(div().id(`paper-smoke-${sidOf(unit)}`).absolute().left(0).top(0)
-    .opacity(working ? 1 : 0).transition("opacity", { duration: FADE_MS })
-    .child(puff(0, 0, 1, SMOKE_MS)).child(puff(3 * s, -6 * s, 0.8, SMOKE_MS + 600)));
-
-  out.push(fade(sprite(propOf("gift", o.tone), x - HOUSE_GIFT_X * s, base, GIFT_H * s).el, unread));
-  out.push(fade(sprite(propOf("stocking", o.tone), chimneyX, house.top + 16 * s, STOCKING_H * s).el, sleeping));
-
-  // The villager stands by the house and, with nothing asked of it, walks to the tree and back.
-  const walker = box(propOf("villager", o.tone), VILLAGER_H * s);
-  const homeLeft = r2(x + HOUSE_VILLAGER_X * s - walker.ax);
-  const treeSide = o.treeX + (unit.x > o.logicalW / 2 ? TREE_WALK_GAP : -TREE_WALK_GAP) * s;
-  const plain = fade(image(walker.file).absolute().left(homeLeft).top(r2(base - walker.ay)).w(walker.w).h(walker.h), !turn);
-  if (other) {
-    plain.loop("left", { from: homeLeft, to: r2(treeSide - walker.ax), period: WALK_MS, easing: "ease-in-out" })
-      .loop("height", { from: r2(walker.h * 0.98), to: walker.h, period: 600, easing: "ease-in-out" });
-  }
-  out.push(plain);
-
-  const bell = box(propOf("bell", o.tone), VILLAGER_H * s);
-  const bellTop = r2(base - bell.ay);
-  const bellEl = fade(image(bell.file).absolute().left(r2(x + HOUSE_BELL_X * s - bell.ax)).top(bellTop).w(bell.w).h(bell.h), turn);
-  if (turn) bellEl.loop("top", { from: r2(bellTop - 2 * s), to: r2(bellTop + 2 * s), period: BELL_MS, easing: "ease-in-out" });
-  out.push(bellEl);
-
-  // Dark tone: the z's are the sheet's paper zzz, which reads on the night sky. The pale zzz would
-  // sink into the light sky, so the light tone keeps the text.
-  const zzz = div().id(`paper-zzz-${sidOf(unit)}`).absolute().left(r2(x - 40 * s))
-    .top(r2(house.top - (o.tone === "dark" ? ZZZ_IMG_H + 6 : 16) * s)).w(r2(80 * s))
-    .opacity(sleeping ? 1 : 0).transition("opacity", { duration: FADE_MS });
-  if (o.tone === "dark") {
-    const b = box(extraOf("zzz", o.tone), ZZZ_IMG_H * s);
-    zzz.child(image(b.file).absolute().left(r2((80 * s - b.w) / 2)).top(0).w(b.w).h(b.h)
-      .loop("opacity", { from: 1, to: 0.25, period: ZZZ_MS, easing: "ease-in-out" }));
-  } else {
-    zzz.child(div().w_full().text_size(r2(ZZZ_SIZE * s)).font_family("Nunito").font_bold().text_color(o.text).child("z z z")
-      .loop("opacity", { from: 1, to: 0.15, period: ZZZ_MS, easing: "ease-in-out" }));
-  }
-  out.push(zzz);
-  return out;
-}
-
-// The name under a front-row house (the back row's would run into it) and, for a session waiting
-// on the person, its question above.
-function signNodes(unit, o, built, bubble) {
-  const s = unit.scale * o.k;
-  const x = unit.x * o.k, base = unit.y * o.k;
-  const out = [];
-  if (unit.row !== "back") {
-    const labelW = Math.max(built.house.w, LABEL_MIN_W * s);
-    out.push(div().id(`paper-name-${sidOf(unit)}`).absolute().left(r2(x - labelW / 2)).top(r2(base + NAME_TOP * s))
-      .w(r2(labelW)).text_size(r2(NAME_SIZE * s)).font_family("Nunito").font_weight(600).text_color(o.text)
-      .whitespace_nowrap().flex().items_center().justify_center()
-      .child(clipText(unit.name, labelW - 4 * s, NAME_SIZE * s)));
-  }
-  if (bubble) {
-    out.push(div().id(`paper-ask-${sidOf(unit)}`).absolute().left(r2(bubble.left)).top(r2(bubble.top))
-      .w(r2(bubble.w)).h(r2(bubble.h))
-      .opacity(unit.display === "turn" ? 1 : 0).transition("opacity", { duration: FADE_MS })
-      .flex().items_center().justify_center().rounded(r2(ASK_RADIUS * o.k)).bg(o.surface)
-      .border(Math.max(1, r2(o.k))).border_color(o.accent).text_size(r2(ASK_SIZE * o.k)).font_family("Nunito")
-      .font_weight(600).text_color(o.text).whitespace_nowrap().overflow_hidden().child(bubble.text));
-  }
-  return out;
-}
-
-/**
- * Every node of the scene, back to front: background and sky, back-row houses, shadows, the tree
- * and the front-row houses, the garlands between their roofs, the props each state adds, then the
- * names and bubbles.
- * o: { width, height, tone, units, overflow, sleigh, colors: { text, muted, accent, surface, ground }, visit }
- */
 export function sceneLayers(o) {
-  const k = Math.max(0.01, o.height / 240);
-  const W = o.width;
-  const shared = { k, width: W, height: o.height, logicalW: W / k, tone: o.tone, visit: o.visit,
-    text: o.colors.text, muted: o.colors.muted, accent: o.colors.accent, surface: o.colors.surface,
-    numberPlate: o.colors.ground, treeX: W / 2 };
-  const base = [];
-  const tileW = ART_W * k;
-  const bg = ART + (o.tone === "dark" ? ART_FILE.bg_dark : ART_FILE.bg_light);
-  for (let i = 0; i * tileW < W; i++) base.push(image(bg).absolute().left(r2(i * tileW)).top(0).w(r2(tileW + 1)).h(r2(o.height)));
-  base.push(div().id("paper-land").absolute().left(0).top(r2(o.height - LAND_BAND * k)).w(W).h(r2(LAND_BAND * k))
-    .bg(o.tone === "dark" ? LAND_COLORS.dark : LAND_COLORS.light));
+  const width = o.width, height = o.height;
+  const mode = o.mode === "dark" ? "dark" : "light";
+  const frame = sceneFrame(width, height);
+  const k = frame.k;
+  const seats = o.seats ?? [];
+  const sx = (x) => frame.left + x * k;
+  const sy = (y) => frame.top + y * k;
+  const s = (v) => v * k;
+  const label = LABEL_COLORS[mode];
+  const plusColors = PLUS_COLORS[mode];
+  const byHouse = new Map(seats.map((seat) => [seat.house.id, seat]));
+  const nodes = [];
 
-  const back = o.units.filter((u) => u.row === "back");
-  const front = o.units.filter((u) => u.row === "front");
-  const bases = new Map();
-  const houses = [];
-  for (const unit of back) {
-    const built = unitBase(unit, shared);
-    bases.set(unit, built);
-    houses.push(built.node);
+  nodes.push(image(`${ART}scene_${mode}.png`).id("paper-scene-bg").absolute()
+    .left(r2(frame.left)).top(r2(frame.top))
+    .w(r2(SLOTS.canvas_logical[0] * k)).h(r2(SLOTS.canvas_logical[1] * k)));
+
+  // Every house carries all three state slices from the first frame, and only the slice its seated
+  // session calls for is opaque; a session leaving or arriving changes opacities, not elements.
+  for (const house of SLOTS.houses) {
+    const shown = overlayState(byHouse.get(house.id)?.display);
+    for (const state of STATES) {
+      const record = OVERLAYS[state]?.[mode]?.[house.id];
+      if (!record) continue;
+      nodes.push(image(ART + record.file).id(`paper-state-${house.id}-${state}`).absolute()
+        .left(r2(sx(record.x))).top(r2(sy(record.y))).w(r2(s(record.w))).h(r2(s(record.h)))
+        .opacity(shown === state ? 1 : 0).transition("opacity", { duration: FADE_MS }));
+    }
   }
 
-  // Shadows lie between the rows: under the front houses only, behind their bases.
-  const shadowFile = ART + ASSETS[propOf("shadow", o.tone)].file;
-  for (const unit of front) {
-    const house = box(houseOf(unit.id, o.tone), HOUSE_H * k);
-    const w = house.w * 1.3, h = 14 * k;
-    houses.push(image(shadowFile).absolute().left(r2(unit.x * k - w / 2)).top(r2(unit.y * k - h / 2)).w(r2(w)).h(r2(h)));
+  for (const seat of seats) {
+    const house = seat.house;
+    nodes.push(div().id(`paper-visit-${sidOf(seat.id)}`).absolute()
+      .left(r2(sx(house.body_x[0]))).top(r2(sy(house.top_y)))
+      .w(r2(s(house.body_x[1] - house.body_x[0]))).h(r2(s(house.floor_y - house.top_y)))
+      .cursor_pointer().on_click(() => o.visit?.(seat)));
   }
 
-  // The big tree, then the front-row houses.
-  const tree = box(propOf("tree", o.tone), TREE_H * k);
-  const treeBase = TREE_Y * k;
-  houses.push(image(shadowFile).absolute().left(r2(W / 2 - (tree.w * 1.4) / 2)).top(r2(treeBase - 10 * k))
-    .w(r2(tree.w * 1.4)).h(r2(16 * k)));
-  houses.push(image(tree.file).absolute().left(r2(W / 2 - tree.ax)).top(r2(treeBase - tree.ay)).w(tree.w).h(tree.h));
-  for (const unit of front) {
-    const built = unitBase(unit, shared);
-    bases.set(unit, built);
-    houses.push(built.node);
+  // The two walkers share the tree's lane. Step 0 is the picture's first pose; steps 1 and 2 turn
+  // them at the lane's ends, and the left transition carries each one there in WALK_MS.
+  // They sit inside a lane box placed straight on the scene, so a crop moves that one box and the
+  // walkers' own lefts stay relative to it. Their own left still scales with k, so the id carries
+  // k too: a new scale draws a new element at its pose instead of sliding there over WALK_MS, while
+  // one scale keeps the id and its step transition.
+  const lane = SLOTS.walker_lane;
+  const step = [0, 1, 2].includes(o.walkStep) ? o.walkStep : 0;
+  const poses = [
+    [{ x: lane.x[0] + 40, side: "right" }, { x: lane.x[1] - 50, side: "left" }],
+    [{ x: lane.x[1], side: "left" }, { x: lane.x[0], side: "right" }],
+    [{ x: lane.x[0], side: "right" }, { x: lane.x[1], side: "left" }],
+  ][step];
+  const all = unionOf(SIDES.flatMap((s2) => [spriteOf(`walker_${s2}_1`, mode, k), spriteOf(`walker_${s2}_2`, mode, k)]));
+  const lanePad = -all.left;
+  const laneBox = div().id("paper-walkers").absolute()
+    .left(r2(sx(lane.x[0]) - lanePad)).top(r2(sy(lane.floor_y) + all.top))
+    .w(r2(s(lane.x[1] - lane.x[0]) + 2 * lanePad)).h(r2(all.h));
+  for (let i = 0; i < WALKERS.length; i += 1) {
+    const spec = WALKERS[i];
+    const pose = poses[i];
+    const x = pose.x;
+    const side = pose.side;
+    const wrap = div().id(`paper-walker-${spec.id}-${Math.round(k * 1000)}`).absolute()
+      .left(r2((x - lane.x[0]) * k + lanePad + all.left)).top(0).w(r2(all.w)).h(r2(all.h))
+      .transition("left", { duration: WALK_MS, easing: "linear" });
+    for (const groupSide of SIDES) {
+      const first = spriteOf(`walker_${groupSide}_1`, mode, k);
+      const second = spriteOf(`walker_${groupSide}_2`, mode, k);
+      const group = unionOf([first, second]);
+      const frames = spec.firstFrame === 1 ? [first, second] : [second, first];
+      wrap.child(div().id(`paper-walker-${spec.id}-${groupSide}`).absolute()
+        .left(r2(group.left - all.left)).top(r2(group.top - all.top)).w(r2(group.w)).h(r2(group.h))
+        .opacity(side === groupSide ? 1 : 0)
+        .child(imageIn(frames[0], group).loop("opacity", { from: 50, to: -49, period: STEP_MS, easing: "linear" }))
+        .child(imageIn(frames[1], group).loop("opacity", { from: -49, to: 50, period: STEP_MS, easing: "linear" })));
+    }
+    laneBox.child(wrap);
+  }
+  nodes.push(laneBox);
+
+  for (const house of SLOTS.houses) {
+    const display = byHouse.get(house.id)?.display;
+    const smoke1 = spriteOf("smoke_1", mode, k);
+    const smoke2 = spriteOf("smoke_2", mode, k);
+    const smoke = unionOf([smoke1, smoke2]);
+    nodes.push(div().id(`paper-smoke-h${house.id}`).absolute()
+      .left(r2(sx(house.smoke.x) + smoke.left)).top(r2(sy(house.smoke.y) + smoke.top))
+      .w(r2(smoke.w)).h(r2(smoke.h))
+      .opacity(display === "working" ? 1 : 0).transition("opacity", { duration: FADE_MS })
+      .child(imageIn(smoke1, smoke).loop("opacity", { from: 50, to: -49, period: SMOKE_MS, easing: "linear" }))
+      .child(imageIn(smoke2, smoke).loop("opacity", { from: -49, to: 50, period: SMOKE_MS, easing: "linear" })));
+
+    const gift = spriteOf("gift", mode, k);
+    nodes.push(image(ART + gift.file).id(`paper-gift-h${house.id}`).absolute()
+      .left(r2(sx(house.gift.x) - gift.ax)).top(r2(sy(house.gift.y) - gift.ay))
+      .w(r2(gift.w)).h(r2(gift.h))
+      .opacity(display === "unread" ? 1 : 0).transition("opacity", { duration: FADE_MS }));
   }
 
-  // The bubbles are laid out before the sky, since the sleigh keeps clear of them.
-  const bubbleOpts = {
-    width: W, size: ASK_SIZE * k, pad: ASK_PAD * k, maxW: Math.min(ASK_MAX_W * k, W - 12 * k),
-    minW: ASK_MIN_W * k, bh: ASK_H * k, gap: ASK_LIFT * k, margin: ASK_MARGIN * k, clear: ASK_CLEAR * k,
-  };
-  const asks = o.units.filter((unit) => unit.question && bases.has(unit)).map((unit) => ({
-    id: unit.id, text: unit.question, x: unit.x * k, top: bases.get(unit).top - ASK_GAP * k - ASK_H * k,
-    claim: unit.display === "turn",
-  }));
-  const bubbles = new Map(layoutBubbles(asks, bubbleOpts).map((bubble) => [bubble.id, bubble]));
-  const sky = skyNodes({ k, width: W, tone: o.tone, sleigh: o.sleigh === true }, [...bubbles.values()]);
-
-  const nodes = [...base, ...sky, ...houses, ...garlandNodes(front, shared)];
-
-  // Every house's own props, back row first so the front row stays in front of it.
-  for (const unit of [...back, ...front]) {
-    const built = bases.get(unit);
-    if (built) nodes.push(...unitSymbols(unit, shared, built));
-  }
-  const snowman = box(propOf("snowman", o.tone), SNOWMAN_H * k);
-  nodes.push(image(snowman.file).absolute().left(r2(W - SNOWMAN_X * k - snowman.ax)).top(r2(SNOWMAN_Y * k - snowman.ay)).w(snowman.w).h(snowman.h));
-
-  for (const mark of o.overflow ?? []) {
-    nodes.push(div().id(`paper-overflow-${mark.side}`).absolute()
-      .left(r2(mark.x * k - (OVERFLOW_W * k) / 2)).top(r2(OVERFLOW_Y * k - OVERFLOW_H * k))
-      .w(r2(OVERFLOW_W * k)).flex().items_center().justify_center().text_size(r2(11 * k))
-      .font_family("Nunito").font_bold().text_color(o.colors.accent).child(mark.text));
+  for (const seat of seats) {
+    if (seat.visible === false) continue;
+    const house = seat.house;
+    const size = s(plateSize(house));
+    const w = Math.min(s(PLATE_BOX), Math.max(1, width - 2 * EDGE));
+    const left = sx(house.door_plate.x) - w / 2;
+    const top = sy(house.door_plate.y) - size / 2 - 0.14 * size;
+    nodes.push(div().id(`paper-plate-${sidOf(seat.id)}`).absolute().left(r2(left)).top(r2(top))
+      .w(r2(w)).h(r2(size)).flex().items_center().justify_center()
+      .child(div().id(`paper-plate-text-${sidOf(seat.id)}`).text_size(r2(size)).line_height(`${r2(size)}px`)
+        .font_family(LABEL_FONT).font_weight(PLATE_WEIGHT).text_color(PLATE_INK).child(String(seat.number))));
   }
 
-  for (const unit of o.units) {
-    const built = bases.get(unit);
-    if (built) nodes.push(...signNodes(unit, shared, built, bubbles.get(unit.id)));
+  for (const seat of seats) {
+    if (seat.visible === false) continue;
+    const house = seat.house;
+    const line = s(LABEL_SIZE);
+    const chipH = line + s(2 * LABEL_PAD_Y);
+    const text = clipText(seat.name, s(LABEL_MAX_W), line);
+    const chipW = textWidth(text, line) + s(2 * LABEL_PAD_X);
+    const w = Math.min(s(LABEL_BOX), Math.max(1, width - 2 * EDGE));
+    const chipLeft = clamp(sx(house.name_label.x) - chipW / 2, EDGE, width - chipW - EDGE);
+    const left = chipLeft - (w - chipW) / 2;
+    const top = clamp(sy(house.name_label.y), EDGE, height - chipH);
+    nodes.push(div().id(`paper-name-${sidOf(seat.id)}`).absolute().left(r2(left)).top(r2(top)).w(r2(w))
+      .flex().justify_center()
+      .child(div().id(`paper-name-chip-${sidOf(seat.id)}`).bg(label.bg)
+        .px(r2(s(LABEL_PAD_X))).py(r2(s(LABEL_PAD_Y))).rounded(r2(s(LABEL_RADIUS)))
+        .line_height(`${r2(line)}px`).text_size(r2(line)).font_family(LABEL_FONT)
+        .font_weight(LABEL_WEIGHT).text_color(label.ink)
+        .whitespace_nowrap().child(text)));
   }
+
+  for (const house of SLOTS.houses) {
+    const seat = byHouse.get(house.id);
+    const display = seat?.display;
+    const shown = !!seat && seat.visible !== false;
+    const line = s(BUBBLE_SIZE);
+    const chipH = line + s(2 * BUBBLE_PAD_Y);
+    const chipW = textWidth(BUBBLE_TEXT, line) + s(2 * BUBBLE_PAD_X);
+    const w = Math.min(s(BUBBLE_BOX), Math.max(1, width - 2 * EDGE));
+    const left = Math.min(sx(house.bubble.x), width - chipW - EDGE);
+    const top = clamp(sy(house.bubble.y) - chipH, EDGE, height - chipH - EDGE);
+    nodes.push(div().id(`paper-bubble-h${house.id}`).absolute().left(r2(left)).top(r2(top))
+      .w(r2(w)).h(r2(chipH)).flex().items_center()
+      .opacity(shown && display === "turn" ? 1 : 0).transition("opacity", { duration: FADE_MS })
+      .child(div().id(`paper-bubble-text-h${house.id}`).bg(BUBBLE_BG)
+        .px(r2(s(BUBBLE_PAD_X))).py(r2(s(BUBBLE_PAD_Y)))
+        .rounded_tl(r2(s(BUBBLE_RADIUS))).rounded_tr(r2(s(BUBBLE_RADIUS)))
+        .rounded_br(r2(s(BUBBLE_RADIUS))).rounded_bl(r2(s(BUBBLE_TAIL_RADIUS)))
+        .line_height(`${r2(line)}px`).text_size(r2(line)).font_family(TEXT_FONT)
+        .font_weight(BUBBLE_WEIGHT).text_color(BUBBLE_INK)
+        .whitespace_nowrap().when(mode === "light", (el) => el.shadow_sm()).child(BUBBLE_TEXT)));
+
+    const zzzLine = s(ZZZ_SIZE);
+    const zzzLeft = sx(house.bubble.x);
+    const zzzTop = sy(house.bubble.y) - zzzLine + s(1);
+    nodes.push(div().id(`paper-zzz-h${house.id}`).absolute().left(r2(zzzLeft)).top(r2(zzzTop))
+      .w(r2(s(ZZZ_BOX))).h(r2(zzzLine))
+      .opacity(shown && display === "sleeping" ? 1 : 0).transition("opacity", { duration: FADE_MS })
+      .child(div().id(`paper-zzz-text-h${house.id}`).text_size(r2(zzzLine)).line_height(`${r2(zzzLine)}px`)
+        .font_family(TEXT_FONT).font_weight(ZZZ_WEIGHT).italic().text_color(ZZZ_COLORS[mode]).child(ZZZ_TEXT)));
+  }
+
+  if ((o.plus ?? 0) > 0) {
+    nodes.push(div().id("paper-plus").absolute().top(PLUS_TOP).right(PLUS_RIGHT)
+      .child(div().id("paper-plus-chip").bg(plusColors.bg)
+        .px(r2(s(PLUS_PAD_X))).py(r2(s(PLUS_PAD_Y))).rounded(r2(s(PLUS_RADIUS)))
+        .line_height(`${r2(s(PLUS_SIZE))}px`).text_size(r2(s(PLUS_SIZE))).font_family(TEXT_FONT)
+        .font_weight(PLUS_WEIGHT).text_color(plusColors.ink).child(`+${o.plus}`)));
+  }
+
   return nodes;
 }

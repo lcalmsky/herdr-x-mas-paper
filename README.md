@@ -1,20 +1,28 @@
 # X-mas Paper
 
-A paper-cut Christmas village for [Herdr](https://herdr.dev). Every agent session is one house on the snow: its windows glow and its chimney smokes while it works, the door opens and a villager rings a bell when your turn comes, a gift box waits under the wreath while a finished turn is still unread, the windows go dark and a stocking hangs on the chimney once it has slept for half an hour, and the villager walks under the tree otherwise. The village runs along the top as a scene band; below it are the tab row and the terminal, and the rail on the right groups spaces by repository with their ticket keys and one row per agent with a face, a topic and an elapsed time. Underneath, staff-ID badges show each Claude and Codex account's five-hour and weekly usage. Light and dark are a theme pair, so the layout follows the system's appearance.
+A paper-cut Christmas village for [Herdr](https://herdr.dev). Every agent session is one house on the snow: its windows glow and its chimney smokes while it works, the door opens and a resident rings a bell when your turn comes, a gift box waits at the door while a finished turn is still unread, the windows go dark and a `zzz` floats over the roof once it has slept for half an hour, and the house stays as painted otherwise. The village runs along the top as a scene band; below it are the tab row and the terminal, and the rail on the right groups spaces by repository with their ticket keys and one row per agent with a face, a topic and an elapsed time. Underneath, staff-ID badges show each Claude and Codex account's five-hour and weekly usage. Light and dark are a theme pair, so the layout follows the system's appearance.
 
 ![X-mas Paper](preview.png)
 
 ## What you see
 
-The scene band is one layered paper picture: a back hill with trees, the six paper houses in front, the villager-sized tree fixed in the middle, and a snowman at the end of the town. Each session takes the next house and a villager of its own; the house's number plate carries its place in the village, and a click on a house goes to that session's terminal.
+The scene band is one painted paper village on a fixed 3112×320 canvas, cropped to the block's middle strip. Each session takes the next house; its state is a studio-drawn overlay slice on that house plus a small picture or a line of text. The house's door plate carries its place in the village, its name sits under it, and a click on a house goes to that session's terminal. Two villagers walk under the tree, and a `+N` at the top right counts the sessions whose houses are off the strip or past the twelfth.
 
-| Session | House and villager | Symbol |
+| Session | House and overlay | Picture or text |
 | --- | --- | --- |
-| Working | Light spills through the door, smoke rises from the chimney | — |
-| Your turn | The door opens and the villager shakes a bell | Bell |
-| Unread result | A gift box waits under the wreath | Gift box |
-| Sleeping (idle for 30 minutes) | The windows are dark, a stocking hangs on the chimney, snow rests on the roof | Stocking |
-| Otherwise | The villager walks under the tree | — |
+| Working | Windows glow, light spills through the door | Smoke rising from the chimney |
+| Your turn | The door opens and a resident rings a bell | `Your turn` bubble |
+| Unread result | The house as painted | Gift box at the door |
+| Sleeping (idle for 30 minutes) | The windows go dark | `zzz` above the roof |
+| Otherwise | The house as painted | — |
+
+The village art is rebuilt from the studio handoff folder:
+
+```sh
+uv run --with pillow python3 -I tools/build-scene-art.py <materials-folder>
+```
+
+It clears and refills `mods/x-mas-paper-scene/art/`, copies the two scene pictures and the small sprites unchanged, cuts one overlay slice per house and state, writes `slots.js`, and fails unless every slice recomposes to the handed-over overlay pixel for pixel.
 
 The rail on the right is a directory tree: a heading per repository, its spaces with their ticket keys, and one row per agent with a face, its status, the topic and how long it has run. The badges under it hang like staff IDs, one per account, with the five-hour and weekly usage. A session that needs an answer also carries its last line as a sign above the house; the tab bar above the terminal says when the village cannot read its sessions.
 

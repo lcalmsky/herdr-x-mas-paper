@@ -92,3 +92,10 @@ test("install.sh copies the layout picture with the layouts", () => {
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("the picture layout silences Herdr notifications, which name real sessions", () => {
+  const layout = JSON.parse(execFileSync("python3", [BUILD], { encoding: "utf8" }));
+  assert.equal(layout.toast, "x-mas-paper-demo-toast");
+  const main = readFileSync(join(ROOT, "tools/preview/mods/x-mas-paper-demo-toast/main.js"), "utf8");
+  assert.match(main, /closeOverlay\(id\)/, "the silent toast closes its overlay at once");
+});

@@ -1,17 +1,13 @@
-// X-mas paper: the scene band of the layout. Every agent session is a paper house on the snow —
-// the middle tree fixed, a villager per house, and the house's windows, door, smoke, gift or
-// stocking saying what the session is doing. scan.sh is read every 3 s; a click visits the
-// session's terminal. The rail reads the places published here, and the tab bar the notice.
+// X-mas paper: the scene band of the layout. Every agent session is a paper house in one painted
+// village — the house's state picture and a little text say what the session is doing. scan.sh is
+// read every 3 s; a click visits the session's terminal. The rail reads the places published here,
+// and the tab bar the notice.
 import { View, div } from "gpui-kit";
 import { exec, appHome, run, props, shared, setShared, theme, agents, terminals, panes } from "herdr";
-import { parseScan, buildSessions, placesOf, countStates, placeSessions, SCENE_H, SLEIGH_MS, SLEIGH_REST_MS, SLEIGH_FIRST_MS } from "./model.js";
+import { parseScan, buildSessions, placesOf, countStates, placeSessions, sceneFrame, SCENE_H, WALK_MS, WALK_FIRST_MS, DEMO_STAND_MS } from "./model.js";
 import { sceneLayers } from "./scene.js";
 import { demoSessions, demoRead } from "./demo.js";
 
-const TOKENS = {
-  light: { ground: "#FBF8F2", text: "#3A3530", muted: "#8A7868", accent: "#C8423B", surface: "#FFFDF8" },
-  dark: { ground: "#1E2A44", text: "#DCE3EE", muted: "#8A94A8", accent: "#F2C46D", surface: "#18203A" },
-};
 const POLL_MS = 3000;
 const SHARED_KEY = "x-mas-paper-scene";
 const NOTICE_KEY = "x-mas-paper-scene.notice";
@@ -45,29 +41,26 @@ export default class PaperScene extends View {
     this.since = {};
     this.read = this.demo ? new Set() : loadRead();
     this.items = [];
-    this.sleigh = false;
+    this.walkStep = 0;
     this.refresh(Date.now());
     this.publishNotice();
-    this.startSleigh(cx);
+    this.startWalkers(cx);
     if (this.demo) return;
     cx.timer.every(POLL_MS, (cx) => this.poll(cx));
     this.poll(cx);
   }
 
-  // The sleigh's crossing is a left transition, so a render must follow each end of it: the first
-  // render draws it waiting off the right edge, then these timers start and end each crossing.
-  startSleigh(cx) {
-    cx.timer.after(SLEIGH_FIRST_MS, (cx) => this.crossSleigh(cx));
+  // Each walker's crossing is a left transition, so a render must follow each end of it: the first
+  // render draws both waiting at their starts, then these timers walk them to one lane end and
+  // turn them back at every end after that.
+  startWalkers(cx) {
+    cx.timer.after(this.demo ? DEMO_STAND_MS : WALK_FIRST_MS, (cx) => this.stepWalkers(cx));
   }
 
-  crossSleigh(cx) {
-    this.sleigh = true;
+  stepWalkers(cx) {
+    this.walkStep = this.walkStep === 0 ? 1 : this.walkStep === 1 ? 2 : 1;
     cx.notify();
-    cx.timer.after(SLEIGH_MS, (cx) => {
-      this.sleigh = false;
-      cx.notify();
-      cx.timer.after(SLEIGH_REST_MS, (cx) => this.crossSleigh(cx));
-    });
+    cx.timer.after(WALK_MS, (cx) => this.stepWalkers(cx));
   }
 
   poll(cx) {
@@ -165,24 +158,15 @@ export default class PaperScene extends View {
       if (act.act === "retry") this.poll(cx);
     }
 
-    const tone = appearance();
-    const t = TOKENS[tone];
-    const th = theme() ?? {};
-    const colors = {
-      text: th.foreground ?? t.text,
-      muted: th.muted ?? t.muted,
-      accent: th.accent ?? t.accent,
-      surface: th.surface ?? t.surface,
-      ground: t.ground,
-    };
+    const mode = appearance();
     const height = this.height > 0 ? this.height : SCENE_H;
-    const k = height / SCENE_H;
-    const placed = placeSessions(this.items, this.width / k);
+    const plan = placeSessions(this.items, sceneFrame(this.width, height));
     const nodes = sceneLayers({
-      width: this.width, height, tone, units: placed.units, overflow: placed.overflow, sleigh: this.sleigh, colors,
-      visit: (unit) => this.visit(unit, cx),
+      width: this.width, height, mode, seats: plan.seats, plus: plan.plus,
+      walkStep: this.walkStep, visit: (seat) => this.visit(seat, cx),
     });
-    return div().id("paper-scene").size_full().relative().overflow_hidden().bg(t.ground)
+    return div().id("paper-scene").size_full().relative().overflow_hidden()
+      .bg(mode === "dark" ? "#15181E" : "#F7F4EE")
       .on_size_change((size, cx) => {
         if (size.width === this.width && size.height === this.height) return;
         this.width = size.width;

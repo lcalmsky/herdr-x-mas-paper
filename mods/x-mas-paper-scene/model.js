@@ -1,83 +1,36 @@
 // What the scene knows about sessions, with no drawing in it: the scan's records, the five
-// pictures the village shows, the two hills' seats and the one-line text the signs carry.
+// pictures the village shows, and how a session's house is found on the fixed 3112×320 canvas.
 
-export const SCENE_H = 240;
-export const FRONT_Y = 198;
-export const BACK_Y = 160;
+import { SLOTS } from "./slots.js";
+
+export const SCENE_H = 320;
 export const SLEEP_MS = 30 * 60 * 1000;
-export const BACK_SCALE = 0.72;
-export const SEAT_FIRST = 130;
-export const SEAT_STEP = 110;
-export const SEAT_MIN_STEP = 84;
-// Half the drawn tree and half the widest drawn house plus 4 px: the nearest front seat's clearance.
-export const SEAT_TREE_CLEAR = 100;
-export const EDGE_CLEAR = 70;
 export const DISPLAY_STATES = ["working", "turn", "unread", "sleeping", "other"];
 
-// Every length the village draws with, in logical px for a 240 px scene. scene.js multiplies each
-// by the block's scale and, on the back row, by BACK_SCALE.
-export const ART_W = 1778 / 2;
-export const TREE_H = 168, TREE_Y = 200, TREE_WALK_GAP = 66;
-export const HOUSE_H = 92, HOUSE_GIFT_X = 16, HOUSE_VILLAGER_X = 30, HOUSE_BELL_X = 4;
-export const CHIMNEY_X = 0.28, CHIMNEY_Y = 6, SMOKE_H = 18, SMOKE_RISE = 14;
-export const VILLAGER_H = 38, GIFT_H = 18, STOCKING_H = 20, SNOWMAN_H = 42, SNOWMAN_Y = 198, SNOWMAN_X = 45;
-export const NUMBER_SIZE = 11, NUMBER_H = 16, NUMBER_RADIUS = 3, NUMBER_PAD = 3, NUMBER_AT = 0.4;
-export const NAME_SIZE = 11, LABEL_MIN_W = 96, NAME_TOP = 2;
-export const ASK_SIZE = 11, ASK_H = 20, ASK_PAD = 6, ASK_RADIUS = 8, ASK_MAX_W = 180, ASK_GAP = 8;
-export const ASK_MIN_W = 48, ASK_LIFT = 4, ASK_MARGIN = 4, ASK_CLEAR = 2;
-export const OVERFLOW_Y = 198, OVERFLOW_W = 32, OVERFLOW_H = 14;
-export const ZZZ_SIZE = 11;
-// The sleigh crosses the sky right to left in SLEIGH_MS, then rests out of sight for the rest.
-// Paper snow drifts between the sky's top and the far hill: a native loop swings a property to
-// `to` and back, so each flake's fall is one half of its period and the flake rises again.
-export const SLEIGH_H = 22, SLEIGH_Y = 26, SLEIGH_MS = 18000, SLEIGH_REST_MS = 40000, SLEIGH_FIRST_MS = 600;
-// The house picture's eave line, as a share of its height from the top: where the roof's edge
-// meets the wall, so a garland's cord ends land on the two neighbouring roofs' corners.
-export const GARLAND_H = 15, GARLAND_EAVE = 0.44;
-export const FLAKE_BOTTOM = 80;
-export const FLAKES = [
-  { x: 0.09, y: 2, h: 14, ms: 26000 },
-  { x: 0.21, y: 10, h: 12, ms: 22000 },
-  { x: 0.34, y: 28, h: 16, ms: 30000 },
-  { x: 0.48, y: 4, h: 13, ms: 24000 },
-  { x: 0.61, y: 18, h: 15, ms: 20000 },
-  { x: 0.75, y: 6, h: 12, ms: 28000 },
-  { x: 0.89, y: 34, h: 14, ms: 32000 },
-];
-// The dark sky's stars; `ms` is the twinkle's opacity-loop period, 0 for a steady star.
-export const STARS = [
-  { x: 0.07, y: 8, h: 12, ms: 0 },
-  { x: 0.19, y: 20, h: 10, ms: 3600 },
-  { x: 0.3, y: 12, h: 14, ms: 0 },
-  { x: 0.43, y: 26, h: 11, ms: 4400 },
-  { x: 0.58, y: 10, h: 13, ms: 0 },
-  { x: 0.72, y: 22, h: 10, ms: 3000 },
-  { x: 0.88, y: 16, h: 12, ms: 5200 },
-];
-export const ZZZ_IMG_H = 18;
-// The background tiles carry a black strip along their bottom edge (12 px of the 2x file); the
-// scene covers that much of each tile's foot with the land's colour.
-export const LAND_BAND = 7;
-export const LAND_COLORS = { light: "#D9C3A0", dark: "#141C30" };
-export const FADE_MS = 400, SMOKE_MS = 2000, WALK_MS = 12000, ZZZ_MS = 2400, BELL_MS = 800;
-
-// The six paper houses, light tone and dark tone. The dark names are the manifest's own, so
-// `house_green_dark` and `house_green_dark2` are two different light-tone houses.
-export const HOUSES = {
-  light: ["house_red", "house_green_dark", "house_red2", "house_green", "house_charcoal", "house_cream"],
-  dark: ["house_red_dark", "house_green_dark_dark", "house_red2_dark", "house_green_dark2", "house_charcoal_dark", "house_cream_dark"],
+// The texts the scene draws itself, in logical canvas px; scene.js multiplies them by the block's
+// scale and the mode picks the ink from the tables below.
+export const LABEL_SIZE = 11, LABEL_WEIGHT = 600, LABEL_PAD_Y = 3, LABEL_PAD_X = 6, LABEL_RADIUS = 4;
+export const LABEL_FONT = ".SystemUIFont", TEXT_FONT = "Helvetica";
+export const LABEL_MAX_W = 120, LABEL_BOX = 140;
+export const PLATE_MAX_SIZE = 13, PLATE_WEIGHT = 600, PLATE_BOX = 40, PLATE_INK = "#3A3530";
+export const BUBBLE_TEXT = "Your turn", BUBBLE_SIZE = 11, BUBBLE_WEIGHT = 600, BUBBLE_PAD_Y = 5, BUBBLE_PAD_X = 7;
+export const BUBBLE_RADIUS = 8, BUBBLE_TAIL_RADIUS = 2, BUBBLE_BOX = 160;
+export const BUBBLE_BG = "#FFFCF6", BUBBLE_INK = "#3A3530";
+export const ZZZ_TEXT = "zzz", ZZZ_SIZE = 12, ZZZ_WEIGHT = 600, ZZZ_BOX = 80;
+export const PLUS_SIZE = 13, PLUS_WEIGHT = 700, PLUS_PAD_Y = 5, PLUS_PAD_X = 8, PLUS_RADIUS = 5;
+export const PLUS_TOP = 10, PLUS_RIGHT = 12;
+export const EDGE = 4;
+export const LABEL_COLORS = {
+  light: { ink: "#3A3530", bg: "#FFFCF6B8" },
+  dark: { ink: "#DCE3EE", bg: "#16203CCC" },
 };
-export const PROPS = {
-  light: { tree: "tree", villager: "villager", bell: "villager_bell", snowman: "snowman", gift: "gift", stocking: "stocking", smoke: "smoke", shadow: "shadow" },
-  dark: { tree: "tree_dark", villager: "villager_dark", bell: "villager_bell_dark", snowman: "snowman_dark", gift: "gift_dark", stocking: "stocking_dark", smoke: "smoke_dark", shadow: "shadow" },
+export const ZZZ_COLORS = { light: "#3A3530", dark: "#DCE3EE" };
+export const PLUS_COLORS = {
+  light: { ink: "#3A3530", bg: "#FFFCF6CC" },
+  dark: { ink: "#DCE3EE", bg: "#16203CCC" },
 };
-// The extras sheet: the sky and roof decorations. `bubble` stays in the manifest but the scene
-// still draws its speech bubble as a div, since the picture would tear when stretched.
-export const EXTRAS = {
-  light: { sleigh: "sleigh", garland: "garland", snowflake: "snowflake", star: "star", bubble: "bubble", zzz: "zzz" },
-  dark: { sleigh: "sleigh_dark", garland: "garland_dark", snowflake: "snowflake_dark", star: "star_dark", bubble: "bubble_dark", zzz: "zzz_dark" },
-};
-export const ART_FILE = { bg_light: "bg_light.webp", bg_dark: "bg_dark.webp" };
+export const FADE_MS = 400, SMOKE_MS = 1200, WALK_MS = 9000, STEP_MS = 500;
+export const WALK_FIRST_MS = 600, DEMO_STAND_MS = 2000;
 
 const KEY_RE = /(?:^|[^A-Za-z0-9])([A-Za-z][A-Za-z0-9]{1,9}-\d{1,5})(?![0-9])/;
 
@@ -118,23 +71,17 @@ export function displayState(state, lastActivity, now = Date.now()) {
   return "other";
 }
 
+// The state picture a display hangs on its house, or null for the two plain ones.
+export function overlayState(display) {
+  if (display === "working") return "working";
+  if (display === "turn") return "turn";
+  if (display === "sleeping") return "sleep";
+  return null;
+}
+
 export function lastActivityOf(raw) {
   return raw?.lastMeaningfulAt ?? raw?.statusUpdatedAt ?? raw?.updatedAt ?? raw?.startedAt ?? null;
 }
-
-// The same FNV-1a slot the rail uses, so a session keeps one house throughout the day.
-export function hashIndex(key, count) {
-  let h = 0x811c9dc5;
-  for (const ch of String(key ?? "")) {
-    h ^= ch.charCodeAt(0);
-    h = Math.imul(h, 0x01000193) >>> 0;
-  }
-  return count > 0 ? h % count : 0;
-}
-
-export const houseOf = (id, tone = "light") => HOUSES[tone === "dark" ? "dark" : "light"][hashIndex(id, HOUSES.light.length)];
-export const propOf = (role, tone = "light") => PROPS[tone === "dark" ? "dark" : "light"][role];
-export const extraOf = (role, tone = "light") => EXTRAS[tone === "dark" ? "dark" : "light"][role];
 
 const folder = (path) => String(path ?? "").replace(/\/+$/, "");
 
@@ -268,45 +215,49 @@ export function countStates(items) {
   return counts;
 }
 
-// House seats on the front hill, right of the tree first. The outermost 70 px of the scene stay empty.
-export function seatXs(width, first = SEAT_FIRST, step = SEAT_STEP) {
-  const mid = width / 2, out = [];
-  for (let k = 0; ; k++) {
-    const d = first + k * step;
-    const pair = [mid + d, mid - d].filter((x) => x >= EDGE_CLEAR && x <= width - EDGE_CLEAR);
-    if (!pair.length) break;
-    out.push(...pair);
-  }
-  return out;
+const HOUSES = new Map(SLOTS.houses.map((house) => [house.id, house]));
+export const houseById = (id) => HOUSES.get(id) ?? null;
+
+// The block in canvas px: k takes the taller of the two axis fits, so the picture is never
+// squashed; the block shows the canvas's middle strip. (sx, sy) -> (left + sx·k, top + sy·k).
+export function sceneFrame(width, height) {
+  const w = Math.max(0, Number(width) || 0);
+  const h = Math.max(0, Number(height) || 0);
+  const k = Math.max(h / SCENE_H, w / SLOTS.canvas_logical[0]);
+  if (!(k > 0)) return { k: 0, left: 0, top: 0, vx0: 0, vx1: 0 };
+  const left = (w - SLOTS.canvas_logical[0] * k) / 2;
+  const top = h - SCENE_H * k;
+  const vx0 = -left / k;
+  return { k, left, top, vx0, vx1: vx0 + w / k };
 }
 
-// The widest front-row pitch that seats `count` sessions: from SEAT_STEP down to SEAT_MIN_STEP. The
-// first seat keeps that ratio, but never closer to the tree than SEAT_TREE_CLEAR.
-export function seatPlan(width, count) {
-  for (let step = SEAT_STEP; step > SEAT_MIN_STEP; step -= 1) {
-    const first = Math.max(SEAT_TREE_CLEAR, Math.round((SEAT_FIRST * step) / SEAT_STEP));
-    const xs = seatXs(width, first, step);
-    if (xs.length >= count) return { xs, first, step };
-  }
-  const first = Math.max(SEAT_TREE_CLEAR, Math.round((SEAT_FIRST * SEAT_MIN_STEP) / SEAT_STEP));
-  return { xs: seatXs(width, first, SEAT_MIN_STEP), first, step: SEAT_MIN_STEP };
-}
-
-// Sessions fill the front row first, then a smaller back row; what is left becomes one `+N` at
-// each end. Every x stays inside the scene.
-export function placeSessions(items, width) {
+// Session i sits in house fill_order[i] and carries number i+1. `plus` counts the seats whose
+// house centre is off the visible strip plus every session past the twelfth.
+export function placeSessions(items, frame) {
   const list = items ?? [];
-  const { xs: slots, step } = seatPlan(width, list.length);
-  const front = list.slice(0, slots.length).map((item, i) => ({ ...item, x: slots[i], y: FRONT_Y, scale: 1, row: "front", number: i + 1 }));
-  const back = list.slice(slots.length, slots.length * 2).map((item, i) => ({ ...item, x: slots[i], y: BACK_Y, scale: BACK_SCALE, row: "back", number: slots.length + i + 1 }));
-  const hidden = Math.max(0, list.length - front.length - back.length);
-  const left = Math.min(EDGE_CLEAR / 2, width / 2);
-  const right = Math.max(width - EDGE_CLEAR / 2, width / 2);
-  const overflow = hidden > 0 ? [
-    { side: "left", x: left, text: `+${hidden}` },
-    { side: "right", x: right, text: `+${hidden}` },
-  ] : [];
-  return { units: [...front, ...back], hidden, overflow, step };
+  const view = frame ?? sceneFrame(0, 0);
+  const seats = [];
+  let beyond = 0;
+  for (let i = 0; i < list.length; i += 1) {
+    if (i >= SLOTS.fill_order.length) {
+      beyond += 1;
+      continue;
+    }
+    const house = houseById(SLOTS.fill_order[i]);
+    seats.push({
+      ...list[i],
+      house,
+      number: i + 1,
+      visible: house.center_x >= view.vx0 && house.center_x <= view.vx1,
+    });
+  }
+  const offscreen = seats.filter((seat) => !seat.visible).length;
+  return { seats, offscreen, beyond, plus: offscreen + beyond };
+}
+
+// The door plate's digit size: a share of the plate's height, never over 13.
+export function plateSize(house) {
+  return Math.min(house.door_plate.max_height * 0.62, PLATE_MAX_SIZE);
 }
 
 // An approximate text width: CJK and Hangul take a full em, Latin about half. The scene cuts its
@@ -337,77 +288,4 @@ export function clipText(text, maxPx, size) {
   const at = cut.lastIndexOf(" ");
   const out = (at > 0 ? cut.slice(0, at) : cut).trimEnd();
   return out ? `${out}…` : "…";
-}
-
-// Where the waiting sessions' bubbles go, left to right. Each new bubble is checked against every
-// bubble already placed, whatever its row: the back row starts its bubbles a level lower, so a
-// row-blind check lets the two rows cover each other. A bubble that would cover one goes up a
-// level (its height plus a gap), two levels at most. With both levels taken it is cut into the
-// first free span right of what blocks it, and left out when less than minW remains. No bubble may
-// leave the scene's top; one that cannot is slid aside on its own level instead. Asks that do not
-// claim room (`claim: false`, a session not waiting, drawn only so its bubble can fade) keep the
-// first level and block nothing.
-// o: { width, size, pad, maxW, bh, minW, gap, margin, clear }
-export function layoutBubbles(asks, o) {
-  const { width, size, pad, maxW, bh, minW = ASK_MIN_W, gap = ASK_LIFT, margin = ASK_MARGIN, clear = ASK_CLEAR } = o;
-  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-  const touches = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
-  const centred = (x, top, w) => {
-    const left = clamp(x - w / 2, margin, width - w - margin);
-    return { left, top, w, right: left + w, bottom: top + bh };
-  };
-  const placed = [];
-  const out = [];
-  const keep = (ask, rect, text) => {
-    const item = { id: ask.id, left: rect.left, top: rect.top, w: rect.w, right: rect.right, bottom: rect.bottom, h: bh, text };
-    out.push(item);
-    return item;
-  };
-  const blocked = (rect) => placed.some((p) => touches(rect, p));
-
-  // The widest cut that clears every placed bubble to the right of this level's blockers.
-  const cutAt = (level, x, top, full, text) => {
-    const at = top - level * (bh + gap);
-    if (at < clear) return null;
-    const own = centred(x, at, full);
-    let left = placed.filter((p) => touches(own, p)).reduce((right, p) => Math.max(right, p.right + gap), own.left);
-    for (let tries = 0; tries <= placed.length; tries += 1) {
-      const room = Math.min(full, width - margin - left);
-      if (room < minW) return null;
-      const line = clipText(text, room - 2 * pad, size);
-      const w = Math.min(room, textWidth(line, size) + 2 * pad);
-      if (w < minW) return null;
-      const rect = { left, top: at, w, right: left + w, bottom: at + bh };
-      const hit = placed.find((p) => touches(rect, p));
-      if (!hit) return { level, rect, text: line };
-      left = hit.right + gap;
-    }
-    return null;
-  };
-
-  const order = [...(asks ?? [])].sort((a, b) => a.x - b.x || String(a?.id ?? "").localeCompare(String(b?.id ?? "")));
-  for (const ask of order) {
-    const text = String(ask?.text ?? "");
-    if (!text) continue;
-    const full = Math.min(maxW, textWidth(clipText(text, maxW - 2 * pad, size), size) + 2 * pad);
-    if (!ask.claim) {
-      keep(ask, centred(ask.x, ask.top, full), clipText(text, full - 2 * pad, size));
-      continue;
-    }
-    let box = null;
-    for (let level = 0; level < 2 && !box; level += 1) {
-      const top = ask.top - level * (bh + gap);
-      if (top < clear) break;
-      const rect = centred(ask.x, top, full);
-      if (!blocked(rect)) box = keep(ask, rect, clipText(text, full - 2 * pad, size));
-    }
-    if (box) {
-      placed.push(box);
-      continue;
-    }
-    const best = [cutAt(0, ask.x, ask.top, full, text), cutAt(1, ask.x, ask.top, full, text)]
-      .filter(Boolean).sort((a, b) => b.rect.w - a.rect.w)[0];
-    if (best) placed.push(keep(ask, best.rect, best.text));
-  }
-  return out;
 }

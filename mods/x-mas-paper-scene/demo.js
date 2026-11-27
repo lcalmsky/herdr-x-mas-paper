@@ -1,41 +1,40 @@
 // Invented sessions in the shape scan.sh prints, for a layout that shows the village with no real
-// work behind it (props { demo: true }): previews and a first look. Nine sessions, one for every
-// picture the scene draws, and no company, repository or ticket names.
+// work behind it (props { demo: true }): previews and a first look. Eight sessions in the order the
+// approved picture seats them, and no company, repository or ticket names.
 import { ackOf, lastActivityOf } from "./model.js";
 
 const MIN = 60 * 1000;
 
 const ROWS = [
-  ["snow-api", "working", "Snow API warmup", "Warming the cache before the first snow.", 22],
-  ["gift-tracker", "waiting", "Gift list sync", "Sync the wishlist to the new sheet?", 2],
-  ["sleigh-router", "working", "Sleigh route tests", "Three route tests still to fix.", 9],
-  ["cocoa-docs", "approve", "Cocoa guide", "Publish the cocoa guide to the site?", 5],
-  ["elf-queue", "idle", "Queue retries", "Retries now back off for two minutes.", 3],
-  ["star-ui", "idle", "Star toggle", "The tree topper toggles with the keyboard.", 11],
-  ["bell-cli", "idle", "Bell CLI flags", "The bell flags are documented.", 45],
-  ["wreath-sync", "idle", "Wreath sync", "Wreath colours match the new palette.", 6],
-  ["sock-notes", "working", "Sock notes", "Sorting this week's notes by sock size.", 14],
+  ["notes", "waiting", "The release notes are ready for a last look.", 6],
+  ["web-app", "busy", "Warming the app shell before the first snow.", 0],
+  ["api", "idle", "The gift list endpoint returns the first page.", 4],
+  ["docs", "idle", "The cocoa guide builds green.", 75],
+  ["design", "busy", "Sketching a folding gift card.", 0],
+  ["deploy", "idle", "The preview deploy is up and warm.", 5],
+  ["chat", "busy", "Drafting a short reply to the thread.", 0],
+  ["scratch", "idle", "The scratch notes are filed away.", 40],
 ];
 
 // Sessions the person has already looked at; every other finished one is still an unread result.
-const READ_IDS = new Set(["bell-cli", "wreath-sync"]);
+const READ_IDS = new Set(["docs", "deploy", "scratch"]);
 
 export function demoSessions(now = Date.now()) {
-  return ROWS.map(([id, kind, title, line, mins]) => ({
+  return ROWS.map(([id, kind, line, mins]) => ({
     t: "s",
     pid: null,
     sessionId: id,
-    cwd: `/demo/${id}/${id}-demo`,
+    cwd: `/demo/${id}`,
     name: null,
     kind: null,
-    status: kind === "working" ? "busy" : kind === "approve" ? "waiting" : kind,
-    waitingFor: kind === "approve" ? "permission prompt" : kind === "waiting" ? "reply" : null,
+    status: kind === "busy" ? "busy" : kind,
+    waitingFor: kind === "waiting" ? "reply" : null,
     startedAt: now - 90 * MIN,
     updatedAt: now - mins * MIN,
     statusUpdatedAt: now - mins * MIN,
     lastMeaningfulAt: now - mins * MIN,
-    identity: { handoff: title },
-    customTitle: title,
+    identity: { handoff: id },
+    customTitle: id,
     lastSentence: line,
     background: { shells: 0, agents: 0, monitors: 0, total: 0 },
     completed: [],

@@ -68,6 +68,8 @@ for mod in ("x-mas-paper-scene", "x-mas-paper-rail", "x-mas-paper-accounts", "x-
     if not found["mods"].get(mod):
         fail("the %s block" % mod)
 
+# A Herdr notification names a real session; the silent toast mod keeps it out of the picture.
+layout["toast"] = "x-mas-paper-demo-toast"
 text = json.dumps(layout, indent=2) + "\n"
 if out:
     with open(out, "w") as f:
