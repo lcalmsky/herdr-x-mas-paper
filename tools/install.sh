@@ -12,6 +12,12 @@ for mod in x-mas-paper-scene x-mas-paper-rail x-mas-paper-accounts x-mas-paper-t
   mkdir -p "$HOME_DIR/mods/$mod"
   cp -R "$REPO/mods/$mod/." "$HOME_DIR/mods/$mod/"
 done
+# The public repository carries neutral rail values; a person's own values live outside it.
+SITE_JS=${XMAS_SITE_JS:-$HOME/.config/herdr-x-mas-paper/site.js}
+if [ -f "$SITE_JS" ]; then
+  cp "$SITE_JS" "$HOME_DIR/mods/x-mas-paper-rail/site.js"
+  printf 'Installed the rail site values from %s\n' "$SITE_JS"
+fi
 chmod +x "$HOME_DIR/mods/x-mas-paper-accounts/cca" "$HOME_DIR/mods/x-mas-paper-accounts/usage-tap.sh"
 chmod +x "$HOME_DIR/mods/x-mas-paper-editor/hv" "$HOME_DIR/mods/x-mas-paper-editor/hv-open"
 # Link the mods' runtime files to the shared install when it exists; without herdr-shared the

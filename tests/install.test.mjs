@@ -44,6 +44,7 @@ test("a second install writes real files instead of writing through the shared l
       HERDR_APP_HOME: app,
       HERDR_SHARED_HOME: sharedHome,
       HERDR_SHARED: SHARED,
+      XMAS_SITE_JS: join(root, "absent-site.js"),
     };
     const install = () => execFileSync("sh", [INSTALL], { env, stdio: "pipe" });
     const assertLinked = (when) => {
@@ -80,6 +81,55 @@ test("a second install writes real files instead of writing through the shared l
           `the shared home's ${name} still matches herdr-shared after the second install`);
       }
     }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+// Runs the install in a temp root with the given XMAS_SITE_JS and hands back the installed rail site.js.
+function installWithSite(siteJs) {
+  const root = mkdtempSync(join(tmpdir(), "xmas-paper-site-"));
+  try {
+    const app = join(root, "app");
+    const bin = join(root, "bin");
+    mkdirSync(app, { recursive: true });
+    mkdirSync(bin, { recursive: true });
+    const stubApp = join(bin, "herdr-app");
+    writeFileSync(stubApp, "#!/bin/sh\nexit 0\n");
+    chmodSync(stubApp, 0o755);
+    const env = {
+      ...process.env,
+      PATH: `${bin}:${process.env.PATH}`,
+      HERDR_APP_HOME: app,
+      HERDR_SHARED_HOME: join(root, "shared-home"),
+      HERDR_SHARED: join(root, "no-shared"),
+      XMAS_SITE_JS: siteJs,
+    };
+    execFileSync("sh", [INSTALL], { env, stdio: "pipe" });
+    return readFileSync(join(app, "mods", "x-mas-paper-rail", "site.js"));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+test("the install puts the site.js XMAS_SITE_JS names in place of the rail's", () => {
+  const root = mkdtempSync(join(tmpdir(), "xmas-paper-site-file-"));
+  try {
+    const site = join(root, "site.js");
+    const values = 'export const SPACE_KEY = /(?:^|[^A-Za-z0-9])([A-Z][A-Z0-9]{1,9}-\\d{1,5})(?![0-9])/;\n';
+    writeFileSync(site, values);
+    assert.deepEqual(installWithSite(site), Buffer.from(values), "the named file lands as the rail's site.js");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("the install leaves the repository's neutral rail values when XMAS_SITE_JS names no file", () => {
+  const root = mkdtempSync(join(tmpdir(), "xmas-paper-site-absent-"));
+  try {
+    assert.deepEqual(installWithSite(join(root, "absent-site.js")),
+      readFileSync(join(ROOT, "mods", "x-mas-paper-rail", "site.js")),
+      "the rail keeps the repository's neutral values");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

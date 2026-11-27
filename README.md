@@ -34,7 +34,7 @@ cd herdr-x-mas-paper
 tools/install.sh
 ```
 
-Then pick **x-mas-paper** in Herdr's layout picker. `tools/install.sh` copies the mods, the two layouts (`x-mas-paper` and its demo), the layout picture when it is there, and the two themes into `${HERDR_APP_HOME:-$HOME/.config/herdr-app}`. The `herdr-shared` submodule carries the shared `cca`, `scan.sh` and `hv` runtime files the mods use.
+Then pick **x-mas-paper** in Herdr's layout picker. `tools/install.sh` copies the mods, the two layouts (`x-mas-paper` and its demo), the layout picture when it is there, and the two themes into `${HERDR_APP_HOME:-$HOME/.config/herdr-app}`. The `herdr-shared` submodule carries the shared `cca`, `scan.sh` and `hv` runtime files the mods use. When `${XMAS_SITE_JS:-~/.config/herdr-x-mas-paper/site.js}` exists, the install replaces the rail's `site.js` (ticket key shape, repository prefixes, the thread bot) with that file; the repository carries only neutral values.
 
 ## Keys
 

@@ -75,7 +75,10 @@ window_size() {
   if [ -z "$w" ] || [ -z "$h" ] || [ "$w" -le 0 ] || [ "$h" -le 0 ]; then
     echo "preview.sh: XMAS_WINDOW must be <width>x<height>, two positive integers" >&2; exit 1
   fi
-  echo "set size of window 1 to {$w, $h}"
+  # macOS keeps a resized window inside the screen from where it stands, so a window at its
+  # default spot cannot grow past the screen width minus its left edge; move it left first.
+  echo "set position of window 1 to {0, 0}
+    set size of window 1 to {$w, $h}"
 }
 
 park() {
@@ -128,7 +131,8 @@ PY
     [ -f "$H/settings.json" ] || echo '{"sounds":{"enabled":false}}' > "$H/settings.json"
     # The mods go in before the window opens: a layout whose mods are missing at start falls
     # back to Herdr's own and stays there.
-    HERDR_APP_HOME="$H" "$REPO/tools/install.sh" >/dev/null
+    # The pictures are public, so they always use the repository's neutral rail values.
+    HERDR_APP_HOME="$H" XMAS_SITE_JS="$H/no-private-site.js" "$REPO/tools/install.sh" >/dev/null
     if [ -n "${XMAS_EXTRA_MODS:-}" ]; then
       [ -d "$XMAS_EXTRA_MODS" ] || { echo "preview.sh: no extra mods folder at $XMAS_EXTRA_MODS" >&2; exit 1; }
       for dir in "$XMAS_EXTRA_MODS"/*/; do

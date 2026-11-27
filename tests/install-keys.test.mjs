@@ -34,6 +34,8 @@ function installWith(keys) {
         HERDR_APP_HOME: app,
         HERDR_SHARED_HOME: join(root, "shared-home"),
         HERDR_SHARED: join(root, "no-shared"),
+        // Never let the install read the real ~/.config/herdr-x-mas-paper/site.js.
+        XMAS_SITE_JS: join(root, "absent-site.js"),
       },
       encoding: "utf8",
     });

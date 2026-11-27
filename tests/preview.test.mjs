@@ -83,7 +83,7 @@ test("install.sh copies the layout picture with the layouts", () => {
     writeFileSync(join(repo, "layouts/x-mas-paper.png"), picture);
 
     execFileSync("sh", [join(repo, "tools/install.sh")], {
-      env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, HERDR_APP_HOME: app },
+      env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, HERDR_APP_HOME: app, XMAS_SITE_JS: join(root, "absent-site.js") },
       stdio: "pipe",
     });
     assert.deepEqual(readFileSync(join(app, "layouts/x-mas-paper.png")), picture,

@@ -20,7 +20,7 @@ tools/install.sh
 node --import ./tests/stubs/register.mjs --test tests/
 ```
 
-`tools/install.sh` 는 mod, `layouts/x-mas-paper.json`, `layouts/x-mas-paper.png`(있으면), 테마 둘을 `${HERDR_APP_HOME:-$HOME/.config/herdr-app}` 로 복사한다. `herdr-shared` 의 `cca`·`scan.sh`·`hv` 는 `vendor/herdr-shared` 서브모듈에서 `herdr-shared.list` 대로 사본을 만든다 (`sh vendor/herdr-shared/tools/vendor.sh --list .`). keys.json 은 사람의 파일이라 고치지 않고, `layout:x-mas-paper` 섹션이 없으면 `tools/keys-section.txt` 를 붙이라고 안내만 한다.
+`tools/install.sh` 는 mod, `layouts/x-mas-paper.json`, `layouts/x-mas-paper.png`(있으면), 테마 둘을 `${HERDR_APP_HOME:-$HOME/.config/herdr-app}` 로 복사한다. `herdr-shared` 의 `cca`·`scan.sh`·`hv` 는 `vendor/herdr-shared` 서브모듈에서 `herdr-shared.list` 대로 사본을 만든다 (`sh vendor/herdr-shared/tools/vendor.sh --list .`). keys.json 은 사람의 파일이라 고치지 않고, `layout:x-mas-paper` 섹션이 없으면 `tools/keys-section.txt` 를 붙이라고 안내만 한다. `${XMAS_SITE_JS:-~/.config/herdr-x-mas-paper/site.js}` 가 있으면 레일의 `site.js`(티켓 키 모양, 저장소 접두어, 스레드 봇)를 그 파일로 바꾸고, 저장소에는 중립 값만 둔다.
 
 ## 그림 다시 만들기
 
