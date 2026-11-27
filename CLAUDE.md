@@ -28,7 +28,7 @@ node --import ./tests/stubs/register.mjs --test tests/
 tools/preview/render.sh
 ```
 
-`preview.png`(2560×1600, 밝은 그림과 어두운 그림을 대각선으로 합친 것)와 `layouts/x-mas-paper.png`(640×400, 밝은 그림)를 다시 만든다. macOS 와 `/Applications/Google Chrome.app` 이 필요하고(`CHROME` 으로 경로를 바꾼다), 화면이 잠겨 있거나 미리보기 창이 이미 떠 있거나 창 위에 알림·대화상자가 있으면 아무것도 쓰지 않고 멈춘다.
+`preview.png`(2560×1600, 위는 어두운 테마·아래는 밝은 테마, 줄마다 마을 구간과 레일 조각: 위는 세션 목록, 아래는 계정 카드)와 `layouts/x-mas-paper.png`(640×400, 트리 쪽은 밤·notes 쪽은 낮)를 다시 만든다. 3360×900 창을 띄워(6720×1800 촬영본이라 2배 화면이 필요하다) 테마마다 여러 장(`LIGHT_SHOTS`, `DARK_SHOTS`)을 찍고, `tools/preview/compose.py` 가 굴뚝 연기 세 알과 트리 아래 주민 둘이 보이는 장면을 골라 합성한다. macOS 와 `uv`(https://docs.astral.sh/uv/)가 필요하고, 화면이 잠겨 있거나 미리보기 창이 이미 떠 있거나 창 위에 알림·대화상자가 있으면 아무것도 쓰지 않고 멈춘다.
 
 - `tools/preview/build-layout.py` 가 `layouts/x-mas-paper.json` 을 그림용으로 고친다: 장면·레일·계정·탭 블록에 `props.demo` 를 넣고, 터미널 블록을 `tools/preview/mods/x-mas-paper-demo-term` 로 바꾼다.
 - 지어낸 데모 데이터는 `mods/x-mas-paper-scene/demo.js`, `mods/x-mas-paper-rail/demo.js`, `mods/x-mas-paper-accounts/demo.js`, `mods/x-mas-paper-tabs/main.js` 의 `DEMO_SPACE`, `tools/preview/mods/x-mas-paper-demo-term/main.js` 에 있다.
@@ -40,7 +40,7 @@ tools/preview/render.sh
 
 - **레이아웃 선택 화면 그림.** 레이아웃이 있는 저장소는 `layouts/<name>.json` 루트에 `"preview": "layouts/<name>.png"` 를 두고 `layouts/<name>.png`(640×400)를 저장소에 싣는다. 필드나 그림 중 하나라도 없으면 Herdr 설정 화면에 빈 틀이 나온다 (`~/.config/herdr-app/AGENTS.md` 의 `preview` 항목).
 - **설치는 JSON 과 PNG 를 같이 옮긴다.** 설치 스크립트와 README 의 복사 명령이 둘 다 옮기는지 확인한다. 설치본(`~/.config/herdr-app/layouts/`)에만 필드나 그림을 넣지 않는다. 다음 설치가 JSON 을 통째로 덮어써서 필드가 사라진다.
-- **갤러리 그림.** herdr.dev 갤러리는 저장소 루트의 `preview.png` 를 보여 준다. 16:10(예: 2560×1600)으로 만들고, 선택 화면 그림은 같은 화면을 640×400 으로 줄여 쓴다.
+- **갤러리 그림.** herdr.dev 갤러리는 저장소 루트의 `preview.png` 를 보여 준다. 16:10(예: 2560×1600)으로 만들고, 선택 화면 그림은 갤러리 그림과 같은 촬영본에서 잘라 만든 640×400 을 쓴다.
 - **공개되는 그림에는 지어낸 데모 데이터만 쓴다.** `preview.png`, `layouts/*.png`, README·docs 의 스크린샷과 GIF 가 대상이다. 화면 속 글은 전부 영어로 하고, 회사 업무가 드러나는 것이 보이지 않아야 한다: 티켓 키, 사내 저장소·서비스·채널 이름, 고객과 동료 이름, 실제 터미널 내용, 홈 경로의 계정 이름. 실제로 쓰는 창을 그대로 찍은 그림은 싣지 않는다.
 - **모양을 바꾸면 같은 커밋에서 두 그림을 다시 만든다.** 커밋하기 전에 그림을 열어 위 항목을 눈으로 확인한다.
 

@@ -1,45 +1,25 @@
 #!/bin/sh
-# Renders preview.png (2560x1600) and layouts/x-mas-paper.png (640x400) from a preview window that
-# shows invented demo data only: one shot in the light appearance and one in the dark, composed
-# along a diagonal. Refuses while the screen is locked, another preview window is already running,
-# or a notification or dialog sits over the window.
+# Renders preview.png (2560x1600: the dark theme on top and the light theme below) and
+# layouts/x-mas-paper.png (640x400: night on the tree side, day on the notes side) from a preview
+# window that shows invented demo data only. Shoots several frames per theme at 3360x900 on a 2x
+# screen and lets tools/preview/compose.py pick the scene: three puffs from the chimney and two
+# walkers under the tree. Refuses while the screen is locked, another preview window is already
+# running, or a notification or dialog sits over the window.
 #   tools/preview/render.sh
 set -eu
 REPO=$(cd "$(dirname "$0")/../.." && pwd)
 OUT_HERO=preview.png
 OUT_LAYOUT=layouts/x-mas-paper.png
-WINDOW=1440x900
-CHROME=${CHROME:-"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"}
+WINDOW=3360x900
 TMP=${TMPDIR:-/tmp}
 
 usage() {
-  sed -n '2,6p' "$0" >&2
+  sed -n '2,8p' "$0" >&2
   exit 2
 }
 
 picture_size() {
   sips -g pixelWidth -g pixelHeight "$1" | awk '/pixelWidth:/ {w=$2} /pixelHeight:/ {h=$2} END {print w " " h}'
-}
-
-# The window is 1440x900, but a shot that comes out a different shape is cut to 16:10 from its middle.
-fit_16x10() {
-  in=$1
-  out=$2
-  size=$(picture_size "$in")
-  w=${size% *}
-  h=${size#* }
-  case "${w}${h}" in ""|*[!0-9]*) echo "render.sh: cannot read the size of $in" >&2; exit 1 ;; esac
-  if python3 -c 'import sys
-w, h = float(sys.argv[1]), float(sys.argv[2])
-sys.exit(0 if abs(w / h - 1.6) <= 0.016 else 1)' "$w" "$h"; then
-    cp "$in" "$out"
-  elif [ "$(python3 -c 'import sys; print("w" if float(sys.argv[1]) / float(sys.argv[2]) > 1.6 else "h")' "$w" "$h")" = w ]; then
-    crop_h=$(python3 -c 'import sys; print(round(float(sys.argv[1]) / 1.6))' "$w")
-    sips -c "$crop_h" "$w" "$in" --out "$out" >/dev/null
-  else
-    crop_w=$(python3 -c 'import sys; print(round(float(sys.argv[1]) * 1.6))' "$h")
-    sips -c "$h" "$crop_w" "$in" --out "$out" >/dev/null
-  fi
 }
 
 # Nothing may sit over the window: the picture would carry it.
@@ -119,7 +99,10 @@ settled_shot() {
 }
 
 [ $# -eq 0 ] || usage
-[ -x "$CHROME" ] || { echo "render.sh: no Google Chrome at $CHROME; nothing written" >&2; exit 1; }
+command -v uv >/dev/null 2>&1 || {
+  echo "render.sh: needs uv (https://docs.astral.sh/uv/) to compose the pictures; nothing written" >&2
+  exit 1
+}
 
 if ! console=$(ioreg -n Root -d1 -a 2>/dev/null) || [ -z "$console" ]; then
   echo "render.sh: cannot read the screen state (ioreg failed); not rendering blind" >&2
@@ -183,10 +166,36 @@ done
 # The mods draw after the window reports ready; give the first frames time to land.
 /bin/sleep "${WAIT:-3}"
 
-settled_shot "$WORK/light.png"
+settled_shot "$WORK/settled.png"
+# compose.py's coordinates are in a 6720x1800 shot; macOS narrows the window to the screen, and a
+# 1x screen halves the shot, so stop before the burst rather than after it.
+shot_size=$(picture_size "$WORK/settled.png")
+[ "$shot_size" = "6720 1800" ] || {
+  echo "render.sh: the shot is ${shot_size% *}x${shot_size#* }, not 6720x1800; it needs a 2x screen at least 3360 points wide; nothing written" >&2
+  exit 1
+}
+
+LIGHT_SHOTS=${LIGHT_SHOTS:-8}
+i=1
+while [ "$i" -le "$LIGHT_SHOTS" ]; do
+  refuse_overlay
+  "$REPO/tools/preview.sh" shot "$WORK/light_$i.png"
+  if [ "$i" -lt "$LIGHT_SHOTS" ]; then /bin/sleep 0.7; fi
+  i=$((i + 1))
+done
+
 set_appearance dark
 /bin/sleep "${DARK_WAIT:-3}"
-settled_shot "$WORK/dark.png"
+settled_shot "$WORK/settled.png"
+
+DARK_SHOTS=${DARK_SHOTS:-24}
+i=1
+while [ "$i" -le "$DARK_SHOTS" ]; do
+  refuse_overlay
+  "$REPO/tools/preview.sh" shot "$WORK/dark_$i.png"
+  if [ "$i" -lt "$DARK_SHOTS" ]; then /bin/sleep 0.7; fi
+  i=$((i + 1))
+done
 
 "$REPO/tools/preview.sh" stop >/dev/null 2>&1 || true
 n=0
@@ -197,23 +206,15 @@ while "$REPO/tools/preview.sh" status >/dev/null 2>&1; do
 done
 STARTED=0
 
-fit_16x10 "$WORK/light.png" "$WORK/light-16x10.png"
-fit_16x10 "$WORK/dark.png" "$WORK/dark-16x10.png"
-
-COMPOSE="$WORK/compose"
-mkdir -p "$COMPOSE"
-cp "$REPO/tools/preview/compose.html" "$COMPOSE/"
-cp "$WORK/light-16x10.png" "$COMPOSE/light.png"
-cp "$WORK/dark-16x10.png" "$COMPOSE/dark.png"
-"$CHROME" --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor=1 \
-  --window-size=2560,1600 --virtual-time-budget=3000 --user-data-dir="$WORK/chrome" \
-  --screenshot="$WORK/hero.png" "file://$COMPOSE/compose.html" >/dev/null 2>&1 || true
-[ -f "$WORK/hero.png" ] || { echo "render.sh: Chrome wrote no composed picture; nothing written" >&2; exit 1; }
-[ "$(picture_size "$WORK/hero.png")" = "2560 1600" ] || {
-  echo "render.sh: the composed picture is not 2560x1600; nothing written" >&2; exit 1; }
+set -- --out-hero "$WORK/hero.png" --out-layout "$WORK/layout.png"
+i=1
+while [ "$i" -le "$LIGHT_SHOTS" ]; do set -- "$@" --light "$WORK/light_$i.png"; i=$((i + 1)); done
+i=1
+while [ "$i" -le "$DARK_SHOTS" ]; do set -- "$@" --dark "$WORK/dark_$i.png"; i=$((i + 1)); done
+uv run -q --with pillow python3 -I "$REPO/tools/preview/compose.py" "$@"
 
 cp "$WORK/hero.png" "$REPO/$OUT_HERO"
-sips -z 400 640 "$WORK/light-16x10.png" --out "$REPO/$OUT_LAYOUT" >/dev/null
+cp "$WORK/layout.png" "$REPO/$OUT_LAYOUT"
 
 for pair in "$REPO/$OUT_HERO 2560 1600" "$REPO/$OUT_LAYOUT 640 400"; do
   set -- $pair
